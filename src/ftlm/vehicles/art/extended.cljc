@@ -300,8 +300,8 @@
              (fn [c]
                (let [c (lib/->hsb c)]
                  (lib/with-alpha c
-                                 (* (- 1 (* lib/*dt* speed))
-                                    (q/alpha c)))))))))
+                   (* (- 1 (* lib/*dt* speed))
+                      (q/alpha c)))))))))
 
 (defn from-right [amount]
   (- (q/width) amount))

@@ -6,6 +6,7 @@
     [quil.middleware :as m]
     [ftlm.vehicles.art.lib :refer [*dt*] :as lib]
     [ftlm.vehicles.art.defs :as defs]
+    [ftlm.vehicles.art.extended :as elib]
     [tech.v3.datatype.unary-pred :as unary-pred]
     [tech.v3.datatype.functional :as f]
     [tech.v3.datatype :as dtype]
@@ -44,11 +45,8 @@
 
 (defn draw-state
   [state]
-  ;; (apply
-  ;;  q/background
-  ;;  (lib/->hsb (-> state :controls :background-color)))
+  (q/background (lib/->hsb (-> state :controls :background-color)))
   (q/stroke-weight 1)
-  (q/stroke 0.3)
   (lib/draw-entities state))
 
 (defn update-entity
@@ -130,7 +128,7 @@
                                   lib/mouse-released)
             :mouse-wheel (comp #(reset! lib/the-state %)
                                lib/mouse-wheel)
-            :frame-rate 30))
+            :frame-rate 5))
 
 (defn draw-grid
   [{:as e :keys [grid-width spacing elements draw-element]}]
@@ -140,11 +138,9 @@
                        row (quot i grid-width)]]
              (let [x (+ x (* coll spacing))
                    y (+ y (* row spacing))]
-               (q/with-translation [x y]
-                                   (draw-element (elements
-                                                   i))))))))
-
-
+               (q/with-translation
+                 [x y]
+                 (draw-element e (elements i))))))))
 
 (defn berp-retina
   [{:keys [pos spacing grid-width]}]
@@ -165,14 +161,15 @@
          ;;          (rand-nth [-5 -2 0 2 5])
          ;;          (rand-nth [-5 -2 0 2 5])
          ;;          10 10))))
-         (fn [elm]
+         (fn [_ elm]
            ;; (q/stroke-weight 6)
            (q/with-stroke
              nil
              (q/with-fill
-               (lib/with-alpha (lib/->hsb (:orange
-                                            defs/color-map))
-                               (float elm))
+               (lib/->hsb (:orange defs/color-map))
+               ;; (lib/with-alpha (lib/->hsb (:orange
+               ;;                             defs/color-map))
+               ;;   (float elm))
                (q/ellipse (rand-nth [-5 -2 0 2 5])
                           (rand-nth [-5 -2 0 2 5])
                           8
@@ -188,7 +185,6 @@
        :spacing spacing
        :transform (lib/->transform pos 0 0 1)})))
 
-
 (defmethod lib/setup-version :berp-retina
   [state]
   (-> state
@@ -201,28 +197,44 @@
                         ;;   [5 5] 20 20 1)})
                        ])
       (lib/append-ents
-        [;; (->
-         ;;   (lib/->entity
-         ;;     :q-grid
-         ;;     {:draw-element
-         ;;        (fn [elm]
-         ;;          (q/with-fill (lib/->hsb ((letter->color
-         ;;                                     (long elm))
-         ;;                                    defs/color-map))
-         ;;                       (q/rect 0 0 15 15 5)))
-         ;;      :draw-functions {:grid draw-grid}
-         ;;      :elements (dtt/->tensor
-         ;;                  (repeatedly (* max-grid-size
-         ;;                                 max-grid-size)
-         ;;                              #(rand-nth alphabet))
-         ;;                  :datatype
-         ;;                  :int32)
-         ;;      :grid-width max-grid-size
-         ;;      :spacing 20
-         ;;      :transform (lib/->transform [50 50] 0 0 1)}))
+        [(->
+           (lib/->entity
+             :q-grid
+             {:alpha 1
+              :draw-element
+                (fn [{:keys [alpha]} elm]
+                  (q/with-fill
+                    (lib/with-alpha
+                      (lib/->hsb ((letter->color (long elm))
+                                   defs/color-map))
+                      alpha)
+                    (q/rect 0 0 15 15 5)))
+              :draw-functions {:grid draw-grid}
+              :elements (dtt/->tensor
+                          (repeatedly (* max-grid-size
+                                         max-grid-size)
+                                      #(rand-nth alphabet))
+                          :datatype
+                          :int32)
+              :grid-width max-grid-size
+              :spacing 20
+              :transform (lib/->transform [50 50] 0 0 1)})
+           (lib/live [:fades
+                      (fn [e s _]
+                        (let [speed 0.4]
+                          (update e
+                                  :alpha
+                                  (fn [alpha]
+                                    (mod (+ alpha
+                                            (* lib/*dt*
+                                               speed))
+                                         1)))))]))
          (berp-retina {:grid-width max-grid-size
                        :pos [50 50]
                        :spacing 20})])))
+
+
+
 
 (sketch
  {:background-color [0 0 0]
