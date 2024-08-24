@@ -12,18 +12,11 @@
 
 ;;
 ;;
-(defprotocol ParticleField
-  (state [this])
-  (update [this])
-  (append-activations [this activations]))
+;; (defprotocol ParticleField
+;;   (state [this])
+;;   (update [this])
+;;   (append-activations [this activations]))
 
-(def field-size [30 30])
-
-(def particles
-  (torch/ge
-   (torch/rand 10 :device pyutils/*torch-device*)
-   ;; density
-   0.5))
 
 
 ;; i->j
@@ -66,39 +59,36 @@
 
   )
 
-
-
 (defn local-geometry-1d [i j]
   (<= 1 (abs (- i j))))
 
 (defn local-geometry [p1 p2 dist]
   (< 0 (l1-loss p1 p2) dist))
 
+;; reference impl
 (defn local-square-matrix
   [grid-width]
   (let [->point (fn [i] [(fm/mod i grid-width)
                          (fm/quot i grid-width)])]
     (dtt/compute-tensor
-      [(* grid-width grid-width) (* grid-width grid-width)]
-      (fn [i j]
-        (if
-            (local-geometry (->point i) (->point j) 2)
-            1.0
-            0.0))
-      :float32)))
+     [(* grid-width grid-width) (* grid-width grid-width)]
+     (fn [i j]
+       (if (local-geometry (->point i) (->point j) 2)
+         1.0
+         0.0))
+     :float32)))
+
 
 (defn field-matrix
   [field-size]
   ;; i->j, directed graph with geometry around each i
-  (pyutils/ensure-torch
-   (local-square-matrix field-size)))
+  (lsm/local_square_matrix_torch field-size))
 
 ;; --------------
 
 (defn grid-field
   [size update-fn]
-  {:activations
-   (torch/zeros [(* size size)] :dtype torch/float)
+  {:activations (torch/zeros [(* size size)] :dtype torch/float)
    :t 0
    :size size
    :update-fn update-fn
@@ -115,6 +105,22 @@
 (defn read-particles [{:keys [activations size]}]
   (py.. activations (view size size)))
 
+(defn default-update
+  [weights activations]
+  (let [out (torch/zeros_like activations
+                              :device
+                              pyutils/*torch-device*)]
+    (py/with-gil-stack-rc-context
+      (let [inputs (torch/mv weights activations)
+            idxs (py.. (torch/topk
+                         inputs
+                         (long (py.. (torch/sum activations)
+                                     item)))
+                       -indices)]
+        ;; (py/set-item! (torch/zeros_like activations)
+        ;; idxs 1)
+        (py/set-item! out idxs 1)))))
+
 ;; -------
 
 (defn brownian-motion
@@ -128,32 +134,24 @@
   (default-update (brownian-motion weights) activations))
 
 
-
-
-
 ;; --------
 
-(defn default-update
-  [weights activations]
-  (let [inputs (torch/mv weights activations)
-        idxs (py.. (torch/topk inputs
-                               (long (py.. (torch/sum
-                                            activations)
-                                       item)))
-               -indices)]
-    (py/set-item! (torch/zeros_like activations) idxs 1)))
 
 
-(def f
-  (grid-field 3 brownian-update))
 
 
 
 
 (comment
+  (def f
+    (grid-field 3 brownian-update))
+
   (default-update
    (brownian-motion (field-matrix 3))
-   (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
+   (torch/tensor
+    [1 0 0 0 0 0 0 0 0]
+    :dtype torch/float))
+
   (update-grid-field
    (assoc
     (update-grid-field f)
@@ -199,10 +197,8 @@
   (require-python '[numpy :as np])
   (require-python '[torch :as torch])
   (require-python '[torch.sparse :as torch.sparse])
+  (require-python '[local_square_matrix :as lsm])
   (require '[libpython-clj2.python.np-array]))
-
-
-
 
 
 ;; ------------------------
@@ -212,18 +208,17 @@
 ;;
 
 
-
-
-
-
-
-
-
-
-
-
-
 (comment
+
+
+  (local-square-matrix 3)
+  (local-square-matrix 9)
+
+  (time (local-square-matrix 30))
+
+  (field-matrix 30)
+
+
   (py..
       (torch/mv
        (field-matrix 3)
@@ -247,8 +242,8 @@
              [0 0 0]]
             :dtype
             torch/float)
-         (view 9)))
-    (view 3 3))
+           (view 9)))
+      (view 3 3))
 
 
   (let [inputs
@@ -269,4 +264,22 @@
      [(* grid-width grid-width) (* grid-width grid-width)]
      (fn [i j] [(l1-loss (->point i) (->point j)) :p1
                 (->point i) :p2 (->point j) :i i :j j])
-     :object)))
+     :object))
+
+  (require-python '[local_square_matrix :as lsm])
+
+  (torch/allclose
+   (lsm/local_square_matrix_torch 3)
+   (field-matrix 3))
+
+
+
+  (torch/allclose
+   (time (lsm/local_square_matrix_torch 30))
+   (time (field-matrix 10)))
+
+
+
+
+
+  )

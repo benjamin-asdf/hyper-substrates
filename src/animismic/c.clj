@@ -1,4 +1,4 @@
-(ns animismic.b
+(ns animismic.c
   (:require
    [animismic.lib.particles :as p]
    [clojure.java.io :as io]
@@ -192,8 +192,9 @@
 
 (def grid-width 30)
 
+
 (defn berp-retina
-  [{:keys [pos spacing grid-width]}]
+  [{:keys [pos spacing grid-width color]}]
   (->
    (lib/->entity
     :q-grid
@@ -203,30 +204,30 @@
          (q/with-stroke
              nil
              (q/with-fill
-                 (lib/->hsb (:orange defs/color-map))
-                 (q/ellipse (rand-nth [-5 -2 0 2 5])
-                            (rand-nth [-5 -2 0 2 5])
-                            8
-                            8)))))
+                 (lib/->hsb color)
+                 (q/ellipse
+                  (rand-nth [-5 -2 0 2 5])
+                  (rand-nth [-5 -2 0 2 5])
+                  8
+                  8)))))
      :draw-functions {:grid draw-grid}
-     :elements (dtt/->tensor
-                (repeatedly
-                 (* max-grid-size max-grid-size)
-                 #(if (< (rand) 0.05) 1.0 0.0))
-                :datatype
-                :float32)
+     :elements
+     (dtt/->tensor
+      (repeatedly
+       (* max-grid-size max-grid-size)
+       #(if (< (rand) 0.05) 1.0 0.0))
+      :datatype
+      :float32)
      :grid-width grid-width
      :particle-field
-     (assoc
-      (p/grid-field grid-width p/brownian-update)
-      :activations
-      (pyutils/ensure-torch
-       (dtt/->tensor
-        (repeatedly
-         (* max-grid-size max-grid-size)
-         #(if (< (rand) 0.05) 1.0 0.0))
-        :datatype
-        :float32)))
+     (assoc (p/grid-field grid-width p/brownian-update)
+            :activations
+            (pyutils/ensure-torch
+             (dtt/->tensor
+              (repeatedly (* max-grid-size max-grid-size)
+                          #(if (< (rand) 0.05) 1.0 0.0))
+              :datatype
+              :float32)))
      :spacing spacing
      :transform (lib/->transform pos 0 0 1)})
    (lib/live [:particle
@@ -235,13 +236,10 @@
                                 :particle-field
                                 p/update-grid-field)]
                   (assoc e
-                    :elements (pyutils/ensure-jvm
-                                (-> e
-                                    :particle-field
-                                    :activations)))))])
-   ))
-
-
+                         :elements (pyutils/ensure-jvm
+                                    (-> e
+                                        :particle-field
+                                        :activations)))))])))
 
 
 (defn world-grid
@@ -278,7 +276,9 @@
                                     1)))))])))
 
 
-(defmethod lib/setup-version :berp-retina
+
+
+(defmethod lib/setup-version :berp-retina-2
   [state]
   (-> state
       (lib/append-ents [ ;; (lib/->entity
@@ -290,9 +290,14 @@
                         ;;   [5 5] 20 20 1)})
                         ])
       (lib/append-ents
-       [
-        ;; (world-grid)
-        (berp-retina {:grid-width max-grid-size
+       [ ;; (world-grid)
+
+        (berp-retina {:color (:orange defs/color-map)
+                      :grid-width max-grid-size
+                      :pos [50 50]
+                      :spacing 20})
+        (berp-retina {:color (:heliotrope defs/color-map)
+                      :grid-width max-grid-size
                       :pos [50 50]
                       :spacing 20})])))
 
@@ -303,4 +308,4 @@
   :width 800
   :height 800
   :time-speed 3
-  :v :berp-retina})
+  :v :berp-retina-2})
