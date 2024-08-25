@@ -173,36 +173,38 @@
         {:draw-element (fn [_ elm]
                          (when-not (zero? elm)
                            (q/with-stroke
-                             nil
-                             (q/with-fill
-                               (lib/->hsb color)
-                               (q/ellipse
-                                 (rand-nth [-5 -2 0 2 5])
-                                 (rand-nth [-5 -2 0 2 5])
-                                 8
-                                 8)))))
+                               nil
+                               (q/with-fill
+                                   (lib/->hsb color)
+                                   (q/ellipse
+                                    (rand-nth [-5 -2 0 2 5])
+                                    (rand-nth [-5 -2 0 2 5])
+                                    8
+                                    8)))))
          :draw-functions {:grid draw-grid}
          :elements []
          :grid-width grid-width
          :particle-field
-           (assoc (p/grid-field
-                   grid-width
-                   [
-                    ;; p/vacuum-babble-update
-                    p/decay-update
-                    p/brownian-update
-                    p/normalize-update
-                    ])
-             :vacuum-babble-factor 0
-             :decay-factor 0.02
-             :activations
-               (pyutils/ensure-torch
-                 (dtt/->tensor
-                   (repeatedly
-                     (* max-grid-size max-grid-size)
-                     #(if (< (rand) 0.05) 1.0 0.0))
-                   :datatype
-                   :float32)))
+         (assoc
+          (p/grid-field
+           grid-width
+           [
+            p/vacuum-babble-update
+            p/decay-update
+            p/brownian-update
+            p/normalize-update])
+          :vacuum-babble-factor (/ 1 100)
+          :decay-factor 0.2
+          :size grid-width
+          :activations
+          (pyutils/ensure-torch
+           (dtt/->tensor
+            (repeatedly
+             (* max-grid-size max-grid-size)
+             #(if (< (rand) 0.05) 1.0 0.0))
+            :datatype
+            :float32)))
+
          :particle-id particle-id
          :spacing spacing
          :transform (lib/->transform pos 0 0 1)}))
@@ -216,9 +218,7 @@
               ;;         p/interaction-update
               ;;         (field-map s)
               ;;         (:interactions e))
-              e (update e
-                        :particle-field
-                        p/update-grid-field)
+              e (update e :particle-field p/update-grid-field)
               ;; _ (q/exit)
               ]
           (assoc e
@@ -313,6 +313,17 @@
   :v :berp-retina-2})
 
 (comment
+
+
+  (f/mean
+   (pyutils/ensure-jvm (->> @lib/the-state
+                            (lib/entities)
+                            (keep :particle-field)
+                            (keep :weights)
+                            first)))
+
+
+
   (do
     (reset! lib/the-state nil)
     (System/gc)))

@@ -117,10 +117,10 @@
   weights)
 
 (defn normalize-update
-  [{:as s :keys [t]}]
+  [{:as s :keys [t size]}]
   (if-not (zero? (mod t 5))
     s
-    (update s :weights normalize-weights)))
+    (assoc s :weights (field-matrix size))))
 
 (defn update-grid-field
   [{:as s :keys [activations weights update-fns]}]
@@ -192,14 +192,10 @@
 
 (comment
   (def weights (torch/rand [3 3]))
-
   (torch/mul weights
              (torch/zeros_like weights)
              :out
-             weights)
-
-
-  )
+             weights))
 
 (defn brownian-update
   [{:as state :keys [weights activations]}]
@@ -234,7 +230,9 @@
 
 (comment
   (torch/clamp_max_ (torch/tensor [0 2 1]) 1)
-  (vacuum-babble (torch/zeros [3] :dtype torch/float) 0.5))
+  (vacuum-babble (torch/zeros [3] :dtype torch/float) 0.5)
+
+  )
 
 (defn decay
   [activations factor]
