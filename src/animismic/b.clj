@@ -195,53 +195,48 @@
 (defn berp-retina
   [{:keys [pos spacing grid-width]}]
   (->
-   (lib/->entity
-    :q-grid
-    {:draw-element
-     (fn [_ elm]
-       (when-not (zero? elm)
-         (q/with-stroke
-             nil
-             (q/with-fill
+    (lib/->entity
+      :q-grid
+      {:draw-element
+         (fn [_ elm]
+           (when-not (zero? elm)
+             (q/with-stroke
+               nil
+               (q/with-fill
                  (lib/->hsb (:orange defs/color-map))
                  (q/ellipse (rand-nth [-5 -2 0 2 5])
                             (rand-nth [-5 -2 0 2 5])
                             8
                             8)))))
-     :draw-functions {:grid draw-grid}
-     :elements (dtt/->tensor
-                (repeatedly
-                 (* max-grid-size max-grid-size)
-                 #(if (< (rand) 0.05) 1.0 0.0))
-                :datatype
-                :float32)
-     :grid-width grid-width
-     :particle-field
-     (assoc
-      (p/grid-field grid-width p/brownian-update)
-      :activations
-      (pyutils/ensure-torch
-       (dtt/->tensor
-        (repeatedly
-         (* max-grid-size max-grid-size)
-         #(if (< (rand) 0.05) 1.0 0.0))
-        :datatype
-        :float32)))
-     :spacing spacing
-     :transform (lib/->transform pos 0 0 1)})
-   (lib/live [:particle
-              (fn [e _ _]
-                (let [e (update e
-                                :particle-field
-                                p/update-grid-field)]
-                  (assoc e
-                    :elements (pyutils/ensure-jvm
-                                (-> e
-                                    :particle-field
-                                    :activations)))))])
-   ))
-
-
+       :draw-functions {:grid draw-grid}
+       :elements (dtt/->tensor
+                   (repeatedly
+                     (* max-grid-size max-grid-size)
+                     #(if (< (rand) 0.05) 1.0 0.0))
+                   :datatype
+                   :float32)
+       :grid-width grid-width
+       :particle-field
+       (assoc (p/grid-field grid-width [p/brownian-update])
+           :activations
+             (pyutils/ensure-torch
+               (dtt/->tensor
+                 (repeatedly (* max-grid-size max-grid-size)
+                             #(if (< (rand) 0.05) 1.0 0.0))
+                 :datatype
+                 :float32)))
+       :spacing spacing
+       :transform (lib/->transform pos 0 0 1)})
+    (lib/live [:particle
+               (fn [e _ _]
+                 (let [e (update e
+                                 :particle-field
+                                 p/update-grid-field)]
+                   (assoc e
+                     :elements (pyutils/ensure-jvm
+                                 (-> e
+                                     :particle-field
+                                     :activations)))))])))
 
 
 (defn world-grid

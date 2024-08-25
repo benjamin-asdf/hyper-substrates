@@ -1,6 +1,7 @@
 (ns animismic.c
   (:require
    [animismic.lib.particles :as p]
+   [fastmath.core :as fm]
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.data.json :as json]
@@ -27,6 +28,7 @@
    [bennischwerdtner.hd.codebook-item-memory :as codebook]
    [bennischwerdtner.hd.ui.audio :as audio]
    [bennischwerdtner.hd.data :as hdd]))
+
 
 ;;
 ;; berp:
@@ -69,6 +71,8 @@
 (defn update-state-inner
   [state]
   ;; state
+  ;; (when (< 10 (:t state 0))
+  ;;   (q/exit))
   (let [current-tick (q/millis)
         ;; state (update state
         ;;               :controls
@@ -79,6 +83,7 @@
                  1000.0))
         state (binding [*dt* dt]
                 (-> state
+                    (update :t (fnil inc 0))
                     (assoc :last-tick current-tick)
                     lib/apply-update-events
                     lib/update-update-functions
@@ -87,7 +92,7 @@
                     ;; (lib/apply-events (:event-q
                     ;; state))
                     (lib/update-ents
-                      #(update-entity % state (env state)))
+                     #(update-entity % state (env state)))
                     lib/update-late-update-map
                     lib/transduce-signals
                     lib/track-components
@@ -105,6 +110,7 @@
 
 (defn setup
   [controls]
+  (q/frame-rate 15)
   (q/rect-mode :center)
   (q/color-mode :hsb)
   (q/background (lib/->hsb (-> controls
@@ -114,23 +120,26 @@
                   lib/setup-version)]
     (reset! lib/the-state state)))
 
+
 (defn sketch
   [{:as controls
     :keys [width height]
     :or {height 800 width 1000}}]
-  (q/sketch :size [width height]
-            :setup (partial setup controls)
-            :update update-state
-            :draw draw-state
-            :features [:keep-on-top]
-            :middleware [m/fun-mode]
-            :mouse-pressed (comp #(reset! lib/the-state %)
-                                 lib/mouse-pressed)
-            :mouse-released (comp #(reset! lib/the-state %)
-                                  lib/mouse-released)
-            :mouse-wheel (comp #(reset! lib/the-state %)
-                               lib/mouse-wheel)
-            :frame-rate 1))
+  (q/sketch
+   :size [width height]
+   :setup (partial setup controls)
+   :update update-state
+   :draw draw-state
+   :features [:keep-on-top]
+   :middleware [m/fun-mode]
+   :mouse-pressed (comp #(reset! lib/the-state %)
+                        lib/mouse-pressed)
+   :mouse-released (comp #(reset! lib/the-state %)
+                         lib/mouse-released)
+   :mouse-wheel (comp #(reset! lib/the-state %)
+                      lib/mouse-wheel)
+   :on-close (reset! lib/the-state nil)
+   :frame-rate 1))
 
 (defn draw-grid
   [{:as e :keys [grid-width spacing elements draw-element]}]
@@ -144,103 +153,104 @@
                  [x y]
                  (draw-element e (elements i))))))))
 
-;; (defn berp-retina
-;;   [{:keys [pos spacing grid-width]}]
-;;   (->
-;;     (lib/->entity
-;;       :q-grid
-;;       {:draw-element
-;;        ;; (fn [elm]
-;;        ;;   (q/stroke-weight 6)
-;;        ;;   (q/with-stroke
-;;        ;;       (lib/with-alpha
-;;        ;;         (lib/->hsb
-;;        ;;          (:orange
-;;        ;;           defs/color-map))
-;;        ;;         (float elm))
-;;        ;;       (q/with-fill nil
-;;        ;;         (q/ellipse
-;;        ;;          (rand-nth [-5 -2 0 2 5])
-;;        ;;          (rand-nth [-5 -2 0 2 5])
-;;        ;;          10 10))))
-;;        (fn [_ elm]
-;;          ;; (q/stroke-weight 6)
-;;          (when-not (zero? elm)
-;;            (q/with-stroke
-;;                nil
-;;                (q/with-fill
-;;                    (lib/->hsb (:orange defs/color-map))
-;;                  ;; (lib/with-alpha (lib/->hsb (:orange
-;;                  ;;                             defs/color-map))
-;;                  ;;   (float elm))
-;;                    (q/ellipse (rand-nth [-5 -2 0 2 5])
-;;                               (rand-nth [-5 -2 0 2 5])
-;;                               8
-;;                               8)))))
-;;        :draw-functions {:grid draw-grid}
-;;        :elements
-;;        (dtt/->tensor
-;;         (repeatedly
-;;          (* max-grid-size
-;;             max-grid-size)
-;;          #(if (< (rand) 0.05) 1.0 0.0))
-;;         :datatype
-;;         :int32)
-;;        :grid-width grid-width
-;;        :spacing spacing
-;;        :transform (lib/->transform pos 0 0 1)})))
-
 (def grid-width 30)
 
+(defn field-map
+  [state]
+  (into {}
+        (comp (filter :particle-id)
+              (map (juxt :particle-id :particle-field)))
+        (lib/entities state)))
 
 (defn berp-retina
-  [{:keys [pos spacing grid-width color]}]
+  [{:as opts
+    :keys [pos spacing grid-width color particle-id]}]
   (->
-   (lib/->entity
-    :q-grid
-    {:draw-element
-     (fn [_ elm]
-       (when-not (zero? elm)
-         (q/with-stroke
-             nil
-             (q/with-fill
-                 (lib/->hsb color)
-                 (q/ellipse
-                  (rand-nth [-5 -2 0 2 5])
-                  (rand-nth [-5 -2 0 2 5])
-                  8
-                  8)))))
-     :draw-functions {:grid draw-grid}
-     :elements
-     (dtt/->tensor
-      (repeatedly
-       (* max-grid-size max-grid-size)
-       #(if (< (rand) 0.05) 1.0 0.0))
-      :datatype
-      :float32)
-     :grid-width grid-width
-     :particle-field
-     (assoc (p/grid-field grid-width p/brownian-update)
-            :activations
-            (pyutils/ensure-torch
-             (dtt/->tensor
-              (repeatedly (* max-grid-size max-grid-size)
-                          #(if (< (rand) 0.05) 1.0 0.0))
-              :datatype
-              :float32)))
-     :spacing spacing
-     :transform (lib/->transform pos 0 0 1)})
-   (lib/live [:particle
-              (fn [e _ _]
-                (let [e (update e
+    (lib/->entity
+      :q-grid
+      (merge
+        opts
+        {:draw-element (fn [_ elm]
+                         (when-not (zero? elm)
+                           (q/with-stroke
+                             nil
+                             (q/with-fill
+                               (lib/->hsb color)
+                               (q/ellipse
+                                 (rand-nth [-5 -2 0 2 5])
+                                 (rand-nth [-5 -2 0 2 5])
+                                 8
+                                 8)))))
+         :draw-functions {:grid draw-grid}
+         :elements []
+         :grid-width grid-width
+         :particle-field
+           (assoc (p/grid-field
+                   grid-width
+                   [
+                    ;; p/vacuum-babble-update
+                    p/decay-update
+                    p/brownian-update
+                    p/normalize-update
+                    ])
+             :vacuum-babble-factor 0
+             :decay-factor 0.02
+             :activations
+               (pyutils/ensure-torch
+                 (dtt/->tensor
+                   (repeatedly
+                     (* max-grid-size max-grid-size)
+                     #(if (< (rand) 0.05) 1.0 0.0))
+                   :datatype
+                   :float32)))
+         :particle-id particle-id
+         :spacing spacing
+         :transform (lib/->transform pos 0 0 1)}))
+    (lib/live
+     [:particle
+      (fn [e s _]
+        (let [
+              ;; e
+              ;; (update e
+              ;;         :particle-field
+              ;;         p/interaction-update
+              ;;         (field-map s)
+              ;;         (:interactions e))
+              e (update e
+                        :particle-field
+                        p/update-grid-field)
+              ;; _ (q/exit)
+              ]
+          (assoc e
+                 :elements (pyutils/ensure-jvm
+                            (-> e
                                 :particle-field
-                                p/update-grid-field)]
-                  (assoc e
-                         :elements (pyutils/ensure-jvm
-                                    (-> e
-                                        :particle-field
-                                        :activations)))))])))
-
+                                :activations)))))])
+    ;; (lib/live
+    ;;   [:decay-pump
+    ;;    (lib/every-n-seconds
+    ;;      2.5
+    ;;      (fn [e s _]
+    ;;        (if
+    ;;          (->
+    ;;            (zero? (-> e
+    ;;                       :particle-field
+    ;;                       :decay-factor)))
+    ;;          (-> e
+    ;;              (assoc-in [:particle-field
+    ;;              :decay-factor]
+    ;;                        0.08)
+    ;;              (assoc-in [:particle-field
+    ;;                         :vacuum-babble-factor]
+    ;;                        0))
+    ;;          (-> e
+    ;;              (assoc-in [:particle-field
+    ;;              :decay-factor]
+    ;;                        0)
+    ;;              (assoc-in [:particle-field
+    ;;                         :vacuum-babble-factor]
+    ;;                        (/ 1 300))))))])
+    ))
 
 (defn world-grid
   []
@@ -276,36 +286,33 @@
                                     1)))))])))
 
 
-
-
 (defmethod lib/setup-version :berp-retina-2
   [state]
   (-> state
-      (lib/append-ents [ ;; (lib/->entity
-                        ;;  :circle
-                        ;;  {:color (:red
-                        ;;  defs/color-map)
-                        ;;   :transform
-                        ;;   (lib/->transform
-                        ;;   [5 5] 20 20 1)})
-                        ])
       (lib/append-ents
-       [ ;; (world-grid)
-
+       [;; (world-grid)
         (berp-retina {:color (:orange defs/color-map)
                       :grid-width max-grid-size
+                      :interactions [[:attracted
+                                      :heliotrope]]
+                      :particle-id :orange
                       :pos [50 50]
                       :spacing 20})
         (berp-retina {:color (:heliotrope defs/color-map)
                       :grid-width max-grid-size
+                      :interactions [[:attracted :orange]]
+                      :particle-id :heliotrope
                       :pos [50 50]
                       :spacing 20})])))
 
-
-
 (sketch
- {:background-color [0 0 0]
+ {:background-color 0
   :width 800
   :height 800
   :time-speed 3
   :v :berp-retina-2})
+
+(comment
+  (do
+    (reset! lib/the-state nil)
+    (System/gc)))
