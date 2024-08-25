@@ -12,7 +12,8 @@ def local_square_matrix_torch(grid_width):
     distances = torch.abs(diff).sum(dim=2)
     
     # Create adjacency matrix based on the distance criterion
-    adjacency = (distances > 0) & (distances < 2)
+    # adjacency = (distances > 0) & (distances < 2)
+    adjacency = (distances < 2)
     
     return adjacency.float()
 
