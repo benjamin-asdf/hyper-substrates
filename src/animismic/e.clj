@@ -357,7 +357,7 @@
   [state]
   (-> state
       (lib/append-ents
-        [(world-grid)
+        [;; (world-grid)
          (blerp-retina {:color (:orange defs/color-map)
                         :grid-width grid-width
                         :interactions [[:attracted

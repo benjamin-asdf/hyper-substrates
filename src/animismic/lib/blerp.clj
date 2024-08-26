@@ -20,8 +20,6 @@
 (def berp-map
   (hdd/clj->vsa* {:heliotrope 1 :orange (hd/->seed)}))
 
-(defn berp-resonator-force [particle-id]
-  (hdd/clj->vsa*
-   [:?=
-    1
-    [:. berp-map particle-id]]))
+(defn berp-resonator-force
+  [particle-id]
+  (hdd/clj->vsa* [:?= 1 [:. berp-map particle-id]]))

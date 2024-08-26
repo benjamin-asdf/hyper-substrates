@@ -33,14 +33,11 @@
 (defn update-blerp
   [e s _]
   ;; (hd/unbind b/berp-map (:particle-id e))
-  (when-let [world (first (filter :world?
-                            (lib/entities s)))]
+  (when-let [world (first (filter :world? (lib/entities s)))]
     (let [ ;; berp-id -> alphabet
           ;;
-          factor
-          (get
-           {:orange 1 :heliotrope 1.6}
-           (:particle-id e))
+          factor (get {:heliotrope 1 :orange 2}
+                      (:particle-id e))
           world-activations (:elements world)
           letter 1]
       ;; ------------------------------------------
@@ -51,7 +48,47 @@
                  factor
                  letter))))
 
+
+
+(defn update-glue-space []
+  )
+
+(defn blerp-glue-space [alphabet])
+
+
+
 ;; ------------------------------------------
+;; glooby
+;;
+;; glues objects - oby
+;;
+;;
+;;
+
+(defn ->glooby
+  []
+  (let [sdm (sdm/->sdm {:address-count (long 1e6)
+                        :address-density 0.000003
+                        :word-length (long 1e4)})]
+
+    ))
+
+
+;; 1. for each blerp
+;; 2. count overlaps with the alphabet ?
+;;
+;;
+
+
+
+
+
+
+
+
+
+
+
 
 
 ;;
@@ -245,14 +282,15 @@
              grid-width
              [
               p/attenuation-update
-              ;; p/vacuum-babble-update
-              ;; p/decay-update
+              p/vacuum-babble-update
+              p/decay-update
               p/brownian-update
               p/reset-weights-update
-              p/reset-excitability-update])
-            :vacuum-babble-factor (/ 3 200)
+              p/reset-excitability-update
+              ])
+            :vacuum-babble-factor (/ 2 200)
             :decay-factor 0.15
-            :attenuation-factor 4
+            :attenuation-factor 2
             :size grid-width
             :activations
             (pyutils/ensure-torch
@@ -366,8 +404,7 @@
   [state]
   (-> state
       (lib/append-ents
-        [
-         (world-grid)
+        [(world-grid)
          (blerp-retina {:color (:orange defs/color-map)
                         :grid-width grid-width
                         :interactions [[:attracted
@@ -382,12 +419,11 @@
                         :pos [50 50]
                         :spacing 20})])))
 
-(sketch
- {:background-color 0
-  :height 600
-  :time-speed 3
-  :v :berp-retina-f
-  :width 800})
+(sketch {:background-color 0
+         :height 600
+         :time-speed 3
+         :v :berp-retina-f
+         :width 800})
 
 (comment
   (do (reset! lib/the-state nil) (System/gc)))
