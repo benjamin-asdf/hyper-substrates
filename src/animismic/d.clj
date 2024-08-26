@@ -27,18 +27,36 @@
    [bennischwerdtner.sdm.sdm :as sdm]
    [bennischwerdtner.hd.codebook-item-memory :as codebook]
    [bennischwerdtner.hd.ui.audio :as audio]
-   [bennischwerdtner.hd.data :as hdd]))
+   [bennischwerdtner.hd.data :as hdd]
+   [animismic.lib.blerp :as b]))
+
+(defn update-blerp
+  [e s _]
+  ;; (hd/unbind b/berp-map (:particle-id e))
+  (let [;; berp-id -> alphabet
+        ;;
+        factor 1.2
+        world (first (filter :world? (lib/entities s)))
+        world-activations (:elements world)
+        letter 1]
+    ;; ------------------------------------------
+    (update-in e
+               [:particle-field]
+               p/resonate-update
+               world-activations
+               factor
+               letter)))
 
 ;;
-;; berp:
+;; blerp:
 ;;
-;; brownian explorer resonator particle
+;; brownian local explorer resonator particle
 ;;
 
 ;;
 ;;
 ;; ----------------------------
-;; berp layer
+;; blerp layer
 ;;
 ;;
 ;; particle fields
@@ -51,12 +69,7 @@
 ;;
 
 
-
-
-
-
 ;; __________________
-
 
 (def grid-width 30)
 
@@ -68,13 +81,6 @@
    (defs/color-map :cyan)
    (defs/color-map :green-yellow)
    (defs/color-map :magenta)])
-
-
-
-
-
-
-
 
 
 
@@ -202,7 +208,7 @@
               (map (juxt :particle-id :particle-field)))
         (lib/entities state)))
 
-(defn berp-retina
+(defn blerp-retina
   [{:as opts
     :keys [pos spacing grid-width color particle-id]}]
   (->
@@ -213,59 +219,56 @@
         {:draw-element (fn [_ elm]
                          (when-not (zero? elm)
                            (q/with-stroke
-                               nil
-                               (q/with-fill
-                                   (lib/->hsb color)
-                                   (q/ellipse
-                                    (rand-nth [-5 -2 0 2 5])
-                                    (rand-nth [-5 -2 0 2 5])
-                                    8
-                                    8)))))
+                             nil
+                             (q/with-fill
+                               (lib/->hsb color)
+                               (q/ellipse
+                                 (rand-nth [-5 -2 0 2 5])
+                                 (rand-nth [-5 -2 0 2 5])
+                                 8
+                                 8)))))
          :draw-functions {:grid draw-grid}
          :elements []
          :grid-width grid-width
          :particle-field
-         (assoc
-          (p/grid-field
-           grid-width
-           [
-            p/vacuum-babble-update
-            p/decay-update
-            p/brownian-update
-            p/normalize-update])
-          :vacuum-babble-factor (/ 1 100)
-          :decay-factor 0.2
-          :size grid-width
-          :activations
-          (pyutils/ensure-torch
-           (dtt/->tensor
-            (repeatedly
-             (* grid-width grid-width)
-             #(if (< (rand) 0.05) 1.0 0.0))
-            :datatype
-            :float32)))
-
+           (assoc (p/grid-field
+                    grid-width
+                    [p/vacuum-babble-update p/decay-update
+                     p/brownian-update p/normalize-update])
+             :vacuum-babble-factor (/ 1 100)
+             :decay-factor 0.05
+             :size grid-width
+             :activations
+               (pyutils/ensure-torch
+                 (dtt/->tensor
+                   (repeatedly
+                     (* grid-width grid-width)
+                     #(if (< (rand) 0.05) 1.0 0.0))
+                   :datatype
+                   :float32)))
          :particle-id particle-id
          :spacing spacing
          :transform (lib/->transform pos 0 0 1)}))
+    (lib/live [:blerp-resonate update-blerp])
     (lib/live
-     [:particle
-      (fn [e s _]
-        (let [
-              ;; e
-              ;; (update e
-              ;;         :particle-field
-              ;;         p/interaction-update
-              ;;         (field-map s)
-              ;;         (:interactions e))
-              e (update e :particle-field p/update-grid-field)
-              ;; _ (q/exit)
+      [:particle
+       (fn [e s _]
+         (let [;; e
+               ;; (update e
+               ;;         :particle-field
+               ;;         p/interaction-update
+               ;;         (field-map s)
+               ;;         (:interactions e))
+               e (update e
+                         :particle-field
+                         p/update-grid-field)
+               ;; _ (q/exit)
               ]
-          (assoc e
-                 :elements (pyutils/ensure-jvm
-                            (-> e
-                                :particle-field
-                                :activations)))))])
+           (assoc e
+             :elements (pyutils/ensure-jvm
+                         (-> e
+                             :particle-field
+                             :activations)))))])
     ;; (lib/live
     ;;   [:decay-pump
     ;;    (lib/every-n-seconds
@@ -290,7 +293,7 @@
     ;;              (assoc-in [:particle-field
     ;;                         :vacuum-babble-factor]
     ;;                        (/ 1 300))))))])
-    ))
+  ))
 
 (defn world-grid
   []
@@ -298,27 +301,31 @@
     (lib/->entity
       :q-grid
       {:alpha 1
-       :draw-element (fn [{:keys [alpha]} elm]
-                       (q/stroke-weight 0.1)
-                       (q/with-stroke
-                         defs/white
-                         (q/with-fill
-                           (lib/with-alpha (lib/->hsb
-                                             (letter->color
-                                               (long elm)))
-                                           alpha)
-                           (q/rect 0 0 15 15 0))))
+       :world? true
+       :draw-element
+       (fn [{:keys [alpha]} elm]
+         (when-not (zero? elm)
+           (q/stroke-weight 0.1)
+           (q/with-stroke
+               defs/white
+               (q/with-fill
+                   (lib/with-alpha (lib/->hsb
+                                    (letter->color
+                                     (long elm)))
+                     alpha)
+                   (q/rect 0 0 15 15 0)))))
        :draw-functions {:grid draw-grid}
        :elements
-         (dtt/->tensor
-           (dtt/reshape
-             (dtt/compute-tensor
-               [grid-width grid-width]
-               (fn [i j]
-                 (if (and (< 10 i 20) (< 10 j 20)) 1.0 0.0))
-               :float32)
-             [(* grid-width grid-width)]))
+       (dtt/->tensor
+        (dtt/reshape
+         (dtt/compute-tensor
+          [grid-width grid-width]
+          (fn [i j]
+            (if (and (< 10 i 20) (< 10 j 20)) 1.0 0.0))
+          :float32)
+         [(* grid-width grid-width)]))
        :grid-width grid-width
+       :name :world
        :spacing 20
        :transform (lib/->transform [50 50] 0 0 1)})
     (lib/live [:fades
@@ -337,7 +344,7 @@
       (lib/append-ents
        [
         (world-grid)
-        (berp-retina
+        (blerp-retina
          {:color (:orange defs/color-map)
           :grid-width grid-width
           :interactions [[:attracted
@@ -345,21 +352,21 @@
           :particle-id :orange
           :pos [50 50]
           :spacing 20})
-        (berp-retina
-         {:color (:heliotrope defs/color-map)
-          :grid-width grid-width
-          :interactions [[:attracted :orange]]
-          :particle-id :heliotrope
-          :pos [50 50]
-          :spacing 20})])))
+        ;; (blerp-retina
+        ;;  {:color (:heliotrope defs/color-map)
+        ;;   :grid-width grid-width
+        ;;   :interactions [[:attracted :orange]]
+        ;;   :particle-id :heliotrope
+        ;;   :pos [50 50]
+        ;;   :spacing 20})
+        ])))
 
 (sketch
  {:background-color 0
-  :height 800
+  :height 600
   :time-speed 3
   :v :berp-retina-3
   :width 800})
-
 
 (comment
   (do (reset! lib/the-state nil) (System/gc)))

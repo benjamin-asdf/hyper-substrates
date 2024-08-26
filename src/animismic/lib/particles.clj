@@ -105,6 +105,7 @@
   {:activations (torch/zeros [(* size size)] :dtype torch/float)
    :t 0
    :size size
+   :N (* size size)
    :update-fns update-fns
    :weights (field-matrix size)})
 
@@ -230,9 +231,7 @@
 
 (comment
   (torch/clamp_max_ (torch/tensor [0 2 1]) 1)
-  (vacuum-babble (torch/zeros [3] :dtype torch/float) 0.5)
-
-  )
+  (vacuum-babble (torch/zeros [3] :dtype torch/float) 0.5))
 
 (defn decay
   [activations factor]
@@ -323,6 +322,30 @@
 
 
 
+;;
+;;
+;;
+;; inputs
+;;
+
+;; this is a kind of saliance
+(defn resonate
+  [weights inputs factor]
+  ;; make the attractor basin that goes towards
+  ;; inputs deeper
+  ;;
+  (torch/where inputs (torch/mul weights factor) weights))
+
+(defn resonate-update
+  [field world-activations factor letter]
+  (update field
+          :weights
+          resonate
+          (torch/eq (pyutils/ensure-torch world-activations)
+                    letter)
+          factor))
+
+
 (comment
   (def spec [[:attracted :orange]])
   (interaction-update {:weights (torch/tensor [0 2 0])}
@@ -334,13 +357,68 @@
 (comment
   (def f (grid-field 3 [brownian-update]))
   (field-matrix 30)
+  (field-matrix 3)
 
   (default-update
-   (brownian-motion (field-matrix 3))
-   (torch/tensor
-    [1 0 0 0 0 0 0 0 0]
-    :dtype torch/float))
+   (torch/mul
+    (field-matrix 3)
+    (py/set-item! (torch/ones [9 9]) 2 2))
+   (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
 
+  (torch/index_add
+   (field-matrix 3)
+   (py/set-item!
+    (torch/ones [9 9])
+    2 2))
+
+  (torch/ones [9 9])
+
+  (def world (torch/tensor [0 0 1] :dtype torch/float))
+  (def w (field-matrix 3))
+
+  (py/set-item! (torch/ones [9 9]) 2 2)
+
+  (torch/mul
+
+   )
+
+  (torch/masked_select
+   (torch/ones [3 3]))
+
+  (torch/select
+   (torch/ones [3 3])
+   0
+   0
+   (torch/tensor
+    [false false true]
+    :dtype torch/bool)
+   )
+
+  (torch/index_select)
+  (def w (torch/ones [3 3]))
+  (py.. (py/get-item
+        w
+        (torch/tensor [false false true] :dtype torch/bool))
+      (add_ 2))
+  (torch/where
+   (torch/tensor [false false true] :dtype torch/bool)
+   (torch/mul w 2)
+   w)
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ;; (torch/index_fill
+  ;;  )
 
   (update-grid-field
    (assoc
@@ -352,7 +430,22 @@
     ;;                             torch/float)
     ;;                 0.5)
     ;;   (to :dtype torch/float))
-    )))
+    ))
+
+
+
+  (dtt/->tensor
+   (dtt/reshape
+    (dtt/compute-tensor
+     [grid-width grid-width]
+     (fn [i j]
+       (if (and (< 10 i 20) (< 10 j 20)) 1.0 0.0))
+     :float32)
+    [(* grid-width grid-width)]))
+
+
+
+  )
 
 
 (comment

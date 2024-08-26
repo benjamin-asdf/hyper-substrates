@@ -188,8 +188,7 @@
          (assoc
           (p/grid-field
            grid-width
-           [
-            p/vacuum-babble-update
+           [p/vacuum-babble-update
             p/decay-update
             p/brownian-update
             p/normalize-update])
