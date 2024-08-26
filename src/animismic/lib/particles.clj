@@ -46,9 +46,6 @@
 ;;       . . .
 ;;
 ;;
-
-;; return true, if j is adjacent to i
-
 (defn hamming-distance [p1 p2]
   (f/sum (f/not-eq p1 p2)))
 
@@ -112,7 +109,9 @@
   (let [matrix (field-matrix size)]
     {:N (* size size)
      :activations
-       (torch/zeros [(* size size)] :dtype torch/float)
+     (torch/zeros [(* size size)] :dtype torch/float)
+     :excitability
+     (torch/ones [(* size size)] :dtype torch/float)
      :field-matrix matrix
      :size size
      :t 0
@@ -132,6 +131,12 @@
   (if-not (zero? (mod t 5))
     s
     (assoc s :weights (py.. field-matrix (clone)))))
+
+(defn reset-excitability-update
+  [{:as s :keys [t size field-matrix]}]
+  (if-not (zero? (mod t 5))
+    s
+    (assoc s :excitability (torch/ones (py.. field-matrix (size 0)) :device pyutils/*torch-device*))))
 
 (defn update-grid-field
   [{:as s :keys [activations weights update-fns]}]
@@ -162,9 +167,10 @@
 ;;         (py.. out (copy_ actv))))))
 
 (defn default-update
-  [weights activations]
+  [weights activations excitability]
   (py/with-manual-gil-stack-rc-context
     (let [inputs (torch/mv weights activations)
+          inputs (torch/mul inputs excitability)
           idxs (py.. (torch/topk inputs
                                  (long (py.. (torch/sum
                                               activations)
@@ -193,12 +199,13 @@
              weights))
 
 (defn brownian-update
-  [{:as state :keys [weights activations]}]
+  [{:as state :keys [weights activations excitability]}]
   (assoc state
          :activations
          (default-update
           (brownian-motion weights)
-          activations)))
+          activations
+          excitability)))
 
 ;; --------
 
@@ -248,6 +255,14 @@
           vacuum-babble
           vacuum-babble-factor))
 
+
+;; --------
+
+
+
+
+
+
 ;; --------
 
 
@@ -258,9 +273,9 @@
             ;; (normalize-weights
             ;;  (torch/add w1 w2))
             (normalize-weights
-              (torch/multiply w1 (torch/add w2 10))))
-    weight
-    weights))
+             (torch/multiply w1 (torch/add w2 10))))
+          weight
+          weights))
 
 
 
@@ -332,19 +347,147 @@
                 (torch/add (torch/mul inputs factor) 1)
                 weights))
 
+
+
+;; (defn resonate-update
+;;   [field world-activations factor letter]
+;;   (update field
+;;           :weights
+;;           resonate
+;;           (torch/eq (pyutils/ensure-torch world-activations)
+;;                     letter)
+;;           factor))
+
+(defn update-excitability
+  [exc selection factor]
+  (py/set-item! exc
+                selection
+                (torch/mul (py/get-item exc selection)
+                           factor)))
+
 (defn resonate-update
   [field world-activations factor letter]
+  ;; (update field
+  ;;         :weights
+  ;;         resonate
+  ;;         (torch/eq (pyutils/ensure-torch
+  ;;         world-activations)
+  ;;                   letter)
+  ;;         factor)
   (update field
-          :weights
-          resonate
+          :excitability
+          update-excitability
           (torch/eq (pyutils/ensure-torch world-activations)
                     letter)
           factor))
+
+;; -----------
+
+(defn attenuation
+  [excitablity activations factor]
+  (println activations)
+  (if (zero? factor)
+    excitablity
+    (update-excitability
+     excitablity
+     (torch/eq activations 1)
+     (/ 1 factor))))
+
+(comment
+  (attenuation (torch/arange 3)
+               (torch/tensor [false false true])
+               2))
+
+(defn attenuation-update
+  [{:as s :keys [attenuation-factor activations]}]
+  (update
+   s
+   :excitability
+   attenuation
+   activations
+   attenuation-factor))
+
+
+
+
+
+
 
 
 
 
 (comment
+
+
+
+
+  (let [exc (torch/arange 3)
+        factor 10]
+    (let [selection (torch/tensor [false false true])]
+      (py/set-item! exc
+                    selection
+                    (torch/mul (py/get-item exc selection)
+                               factor))))
+
+
+
+  (torch/einsum "i,i->i"
+                (torch/add (torch/mul inputs factor) 1)
+                )
+
+
+  (py/set-item! (torch/ones [3]))
+
+  (torch/einsum
+   "i,i->i"
+   (torch/arange 3)
+   (torch/tensor [1 1 2]))
+
+  (torch/wher
+   0
+   (torch/ones [3])
+   (torch/mul (torch/ones [3]) 2))
+
+  (torch/index_add
+   (torch/arange 3)
+   0
+   [0 0 1]
+   (torch/arange 3))
+
+  (torch/index_add
+   (torch/arange 3)
+   0
+   (torch/tensor [1 1 1])
+   (torch/arange 3))
+
+  (torch/index_add
+   (torch/arange 3)
+   0
+   (torch/tensor [1 1 1])
+   (torch/arange 3))
+  (torch/scatter_addv )
+
+
+
+  (py/set-item!
+   (torch/arange 3)
+   (torch/tensor [false false true])
+   (torch/mul (py/get-item (torch/arange 3)
+                           (torch/tensor
+                            [false false true]))
+              2))
+
+  (torch/masked )
+
+
+
+
+
+
+
+
+
+
   (def spec [[:attracted :orange]])
   (interaction-update {:weights (torch/tensor [0 2 0])}
                       {:orange {:weights (torch/tensor
@@ -363,25 +506,7 @@
     (py/set-item! (torch/ones [9 9]) 2 2))
    (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
 
-  (torch/index_add
-   (field-matrix 3)
-   (py/set-item!
-    (torch/ones [9 9])
-    2 2))
 
-  (torch/ones [9 9])
-
-  (def world (torch/tensor [0 0 1] :dtype torch/float))
-  (def w (field-matrix 3))
-
-  (default-update
-   (torch/where
-    (torch/tensor [false false true] :dtype torch/bool)
-    (torch/mul w 2)
-    w)
-   (torch/tensor [0 0 1] :dtype torch/float))
-
-  (default-update w (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
 
 
   (default-update
@@ -392,22 +517,6 @@
     :dtype
     torch/float)
    (torch/tensor [0 1 0] :dtype torch/float))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -437,13 +546,6 @@
    (brownian-motion (field-matrix 3))
    (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
 
-  (default-update
-
-   (torch/tensor [0 0 1
-                  0 0 1
-                  0 0 1] :dtype torch/float)
-
-   )
 
   (def weights
     (resonate
@@ -469,19 +571,6 @@
         _ (py.. activations (fill_ 0))
         _ (py.. activations (index_fill_ 0 idxs 1))]
     activations)
-
-  (torch/where
-   (torch/tensor [[true true true]
-                  [false false false]
-                  [false false false]])
-   2
-   (torch/ones [3 3]))
-
-  (torch/index_select
-   (torch/ones [3 3])
-   0
-   (torch/tensor [0] :dtype torch/long))
-
 
 
   (torch/einsum
