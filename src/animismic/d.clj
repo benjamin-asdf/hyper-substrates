@@ -30,12 +30,10 @@
     [bennischwerdtner.hd.data :as hdd]
     [animismic.lib.blerp :as b]))
 
-
-
 (defn update-blerp
   [e s _]
   ;; (hd/unbind b/berp-map (:particle-id e))
-  (let [ ;; berp-id -> alphabet
+  (let [;; berp-id -> alphabet
         ;;
         factor 2
         world (first (filter :world? (lib/entities s)))
@@ -48,6 +46,9 @@
                world-activations
                factor
                letter)))
+
+;; ------------------------------------------
+
 
 ;;
 ;; blerp:
@@ -303,7 +304,7 @@
   (->
     (lib/->entity
       :q-grid
-      {:alpha 1
+      {:alpha 0
        :draw-element (fn [{:keys [alpha]} elm]
                        (when-not (zero? elm)
                          (q/stroke-weight 0.1)
@@ -333,13 +334,21 @@
     (lib/live
       [:fades
        (fn [e s _]
-         (let [speed 0.2]
-           (update e
-                   :alpha
-                   (fn [alpha]
-                     (max 0.2
-                          (mod (+ alpha (* lib/*dt* speed))
-                               1))))))])))
+         (let [speed 1
+               cycle-duration 4000]
+           (update
+             e
+             :alpha
+             (fn [alpha]
+               (let [fade-factor (-> (* (/ (q/millis)
+                                           cycle-duration)
+                                        q/TWO-PI)
+                                     (Math/sin)
+                                     (Math/abs))
+                     wave-value (* fade-factor
+                                   (+ alpha
+                                      (* lib/*dt* speed)))]
+                 wave-value)))))])))
 
 (defmethod lib/setup-version :berp-retina-3
   [state]

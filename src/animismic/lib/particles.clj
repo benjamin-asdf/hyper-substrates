@@ -93,7 +93,6 @@
           0.0))
       :float32)))
 
-
 (defn log-normal-field-matrix
   [field-size mu sigma]
   (let [base-matrix (lsm/local_square_matrix_torch field-size)
@@ -329,7 +328,9 @@
   ;; make the attractor basin that goes towards
   ;; inputs deeper
   ;;
-  (torch/where inputs (torch/mul weights factor) weights))
+  (torch/einsum "i,ij->ij"
+                (torch/add (torch/mul inputs factor) 1)
+                weights))
 
 (defn resonate-update
   [field world-activations factor letter]
@@ -339,6 +340,8 @@
           (torch/eq (pyutils/ensure-torch world-activations)
                     letter)
           factor))
+
+
 
 
 (comment
@@ -371,34 +374,24 @@
   (def world (torch/tensor [0 0 1] :dtype torch/float))
   (def w (field-matrix 3))
 
-  (py/set-item! (torch/ones [9 9]) 2 2)
+  (default-update
+   (torch/where
+    (torch/tensor [false false true] :dtype torch/bool)
+    (torch/mul w 2)
+    w)
+   (torch/tensor [0 0 1] :dtype torch/float))
 
-  (torch/mul
+  (default-update w (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
 
-   )
 
-  (torch/masked_select
-   (torch/ones [3 3]))
-
-  (torch/select
-   (torch/ones [3 3])
-   0
-   0
+  (default-update
    (torch/tensor
-    [false false true]
-    :dtype torch/bool)
-   )
-
-  (torch/index_select)
-  (def w (torch/ones [3 3]))
-  (py.. (py/get-item
-        w
-        (torch/tensor [false false true] :dtype torch/bool))
-      (add_ 2))
-  (torch/where
-   (torch/tensor [false false true] :dtype torch/bool)
-   (torch/mul w 2)
-   w)
+    [[0 0 1]
+     [0 0 1]
+     [0 0 1]]
+    :dtype
+    torch/float)
+   (torch/tensor [0 1 0] :dtype torch/float))
 
 
 
@@ -412,31 +405,12 @@
 
 
 
-  ;; (torch/index_fill
-  ;;  )
-
-  (update-grid-field
-   (assoc
-    (update-grid-field f)
-    :activations
-    (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float)
-    ;; (py.. (torch/ge (torch/rand [(* 3 3)]
-    ;;                             :dtype
-    ;;                             torch/float)
-    ;;                 0.5)
-    ;;   (to :dtype torch/float))
-    ))
 
 
 
-  (dtt/->tensor
-   (dtt/reshape
-    (dtt/compute-tensor
-     [grid-width grid-width]
-     (fn [i j]
-       (if (and (< 10 i 20) (< 10 j 20)) 1.0 0.0))
-     :float32)
-    [(* grid-width grid-width)]))
+
+
+
 
 
 
@@ -454,15 +428,95 @@
   (decay (torch/ones [9] :dtype torch/float) 0.9)
   (decay (torch/ones [9] :dtype torch/float) 0.1)
   (normalize-weights (field-matrix 3))
-  (torch/mv
-   (normalize-weights (field-matrix 3))
-   (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
-  (torch/mv
-   (field-matrix 3)
-   (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
   (default-update
    (brownian-motion (field-matrix 3))
-   (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float)))
+   (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
+
+
+  (default-update
+   (brownian-motion (field-matrix 3))
+   (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
+
+  (default-update
+
+   (torch/tensor [0 0 1
+                  0 0 1
+                  0 0 1] :dtype torch/float)
+
+   )
+
+  (def weights
+    (resonate
+     (torch/ones [9 9] :dtype torch/float)
+     (torch/tensor [0 0 0 0 0 0 0 0 1] :dtype torch/bool)
+     2))
+
+
+
+  (def activations (torch/tensor [0 0 0
+                                  0 0 1
+                                  0 0 1] :dtype torch/float))
+
+  (torch/mv weights activations)
+  (torch/mv (torch/ones [9 9] :dtype torch/float) activations)
+
+  (let [inputs (torch/mv weights activations)
+        idxs (py.. (torch/topk inputs
+                               (long (py.. (torch/sum
+                                            activations)
+                                       item)))
+               -indices)
+        _ (py.. activations (fill_ 0))
+        _ (py.. activations (index_fill_ 0 idxs 1))]
+    activations)
+
+  (torch/where
+   (torch/tensor [[true true true]
+                  [false false false]
+                  [false false false]])
+   2
+   (torch/ones [3 3]))
+
+  (torch/index_select
+   (torch/ones [3 3])
+   0
+   (torch/tensor [0] :dtype torch/long))
+
+
+
+  (torch/einsum
+   "i,ij->ij"
+   (torch/add
+    (torch/mul (torch/tensor [true false false]) 2)
+    1)
+   (torch/ones [3 3]))
+
+
+  (torch/add
+   (torch/mul (torch/tensor [true false false]) 2)
+   1)
+
+  (def w (torch/rand [3 3]))
+  w
+  ;; tensor([[0.4422, 0.9762, 0.4654],
+  ;;       [0.0434, 0.3445, 0.5620],
+  ;;       [0.2052, 0.1680, 0.4251]])
+
+  (torch/einsum "i,ij->ij" (torch/tensor [1 1 2]) w)
+
+  (torch/mv
+   (resonate
+    (torch/ones [9 9])
+    (torch/tensor [false false false false false
+                   false false false true])
+    2)
+   (torch/tensor [0 0 0 0 0 0 0 0 1] :dtype torch/float))
+  ;; tensor([1., 1., 1., 1., 1., 1., 1., 1., 3.])
+
+
+
+
+  )
 
 ;; ------------------------
 ;;
@@ -498,7 +552,16 @@
         idxs (py.. (torch/topk inputs 2) -indices)]
     (py/set-item! (torch/zeros [9]) idxs 1)))
 
+
+
+
+
+
+
 (comment
+
+
+
   (let [grid-width 3
         ->point (fn [i] [(fm/mod i grid-width)
                          (fm/quot i grid-width)])]
@@ -512,9 +575,3 @@
                   (field-matrix 3))
   (torch/allclose (time (lsm/local_square_matrix_torch 30))
                   (time (field-matrix 10))))
-
-(comment
-
-
-
-  )
