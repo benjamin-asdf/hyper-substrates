@@ -93,21 +93,32 @@
           0.0))
       :float32)))
 
+
+(defn log-normal-field-matrix
+  [field-size mu sigma]
+  (let [base-matrix (lsm/local_square_matrix_torch field-size)
+        log-normal-noise (torch/exp (torch/add (torch/mul (torch/randn_like base-matrix) sigma) mu))
+        log-normal-matrix (torch/mul base-matrix log-normal-noise)]
+    log-normal-matrix))
+
 (defn field-matrix
   [field-size]
   ;; i->j, directed graph with geometry around each i
-  (lsm/local_square_matrix_torch field-size))
+  (log-normal-field-matrix field-size 2 2))
 
 ;; --------------
 
 (defn grid-field
   [size update-fns]
-  {:activations (torch/zeros [(* size size)] :dtype torch/float)
-   :t 0
-   :size size
-   :N (* size size)
-   :update-fns update-fns
-   :weights (field-matrix size)})
+  (let [matrix (field-matrix size)]
+    {:N (* size size)
+     :activations
+       (torch/zeros [(* size size)] :dtype torch/float)
+     :field-matrix matrix
+     :size size
+     :t 0
+     :update-fns update-fns
+     :weights (py.. matrix (clone))}))
 
 ;; (defn append-activations-1 [state activations])
 
@@ -117,11 +128,11 @@
     (torch/div weights (torch/sum weights) :out weights))
   weights)
 
-(defn normalize-update
-  [{:as s :keys [t size]}]
+(defn reset-weights-update
+  [{:as s :keys [t size field-matrix]}]
   (if-not (zero? (mod t 5))
     s
-    (assoc s :weights (field-matrix size))))
+    (assoc s :weights (py.. field-matrix (clone)))))
 
 (defn update-grid-field
   [{:as s :keys [activations weights update-fns]}]
@@ -163,22 +174,6 @@
           _ (py.. activations (fill_ 0))
           _ (py.. activations (index_fill_ 0 idxs 1))])
     activations))
-
-
-;; -------
-
-;; (defn brownian-motion
-;;   [weights]
-;;   (let [out (torch/zeros_like weights
-;;                               :device
-;;                               pyutils/*torch-device*)]
-;;     (py/with-gil-stack-rc-context
-;;       (let [w (torch/mul weights
-;;                          (torch/rand_like
-;;                            weights
-;;                            :device
-;;                            pyutils/*torch-device*))]
-;;         (py.. out (copy_ w))))))
 
 (defn brownian-motion
   [weights]

@@ -1,41 +1,43 @@
 (ns animismic.d
   (:require
-   [animismic.lib.particles :as p]
-   [fastmath.core :as fm]
-   [clojure.java.io :as io]
-   [clojure.string :as str]
-   [clojure.data.json :as json]
-   [quil.middleware :as m]
-   [ftlm.vehicles.art.lib :refer [*dt*] :as lib]
-   [ftlm.vehicles.art.defs :as defs]
-   [ftlm.vehicles.art.extended :as elib]
-   [tech.v3.datatype.unary-pred :as unary-pred]
-   [tech.v3.datatype.functional :as f]
-   [tech.v3.datatype :as dtype]
-   [tech.v3.tensor :as dtt]
-   [fastmath.random :as fm.rand]
-   [quil.core :as q]
-   [tech.v3.datatype.functional :as f]
-   [tech.v3.datatype :as dtype]
-   [tech.v3.tensor :as dtt]
-   [tech.v3.datatype.bitmap :as bitmap]
-   [fastmath.random :as fm.rand]
-   [bennischwerdtner.hd.binary-sparse-segmented :as hd]
-   [bennischwerdtner.pyutils :as pyutils]
-   [tech.v3.datatype.unary-pred :as unary-pred]
-   [tech.v3.datatype.argops :as dtype-argops]
-   [bennischwerdtner.sdm.sdm :as sdm]
-   [bennischwerdtner.hd.codebook-item-memory :as codebook]
-   [bennischwerdtner.hd.ui.audio :as audio]
-   [bennischwerdtner.hd.data :as hdd]
-   [animismic.lib.blerp :as b]))
+    [animismic.lib.particles :as p]
+    [fastmath.core :as fm]
+    [clojure.java.io :as io]
+    [clojure.string :as str]
+    [clojure.data.json :as json]
+    [quil.middleware :as m]
+    [ftlm.vehicles.art.lib :refer [*dt*] :as lib]
+    [ftlm.vehicles.art.defs :as defs]
+    [ftlm.vehicles.art.extended :as elib]
+    [tech.v3.datatype.unary-pred :as unary-pred]
+    [tech.v3.datatype.functional :as f]
+    [tech.v3.datatype :as dtype]
+    [tech.v3.tensor :as dtt]
+    [fastmath.random :as fm.rand]
+    [quil.core :as q]
+    [tech.v3.datatype.functional :as f]
+    [tech.v3.datatype :as dtype]
+    [tech.v3.tensor :as dtt]
+    [tech.v3.datatype.bitmap :as bitmap]
+    [fastmath.random :as fm.rand]
+    [bennischwerdtner.hd.binary-sparse-segmented :as hd]
+    [bennischwerdtner.pyutils :as pyutils]
+    [tech.v3.datatype.unary-pred :as unary-pred]
+    [tech.v3.datatype.argops :as dtype-argops]
+    [bennischwerdtner.sdm.sdm :as sdm]
+    [bennischwerdtner.hd.codebook-item-memory :as codebook]
+    [bennischwerdtner.hd.ui.audio :as audio]
+    [bennischwerdtner.hd.data :as hdd]
+    [animismic.lib.blerp :as b]))
+
+
 
 (defn update-blerp
   [e s _]
   ;; (hd/unbind b/berp-map (:particle-id e))
-  (let [;; berp-id -> alphabet
+  (let [ ;; berp-id -> alphabet
         ;;
-        factor 1.2
+        factor 2
         world (first (filter :world? (lib/entities s)))
         world-activations (:elements world)
         letter 1]
@@ -231,12 +233,13 @@
          :elements []
          :grid-width grid-width
          :particle-field
-           (assoc (p/grid-field
-                    grid-width
-                    [p/vacuum-babble-update p/decay-update
-                     p/brownian-update p/normalize-update])
-             :vacuum-babble-factor (/ 1 100)
-             :decay-factor 0.05
+           (assoc (p/grid-field grid-width
+                                [p/vacuum-babble-update
+                                 p/decay-update
+                                 p/brownian-update
+                                 p/reset-weights-update])
+             :vacuum-babble-factor (/ 3 200)
+             :decay-factor 0.15
              :size grid-width
              :activations
                (pyutils/ensure-torch
@@ -301,64 +304,62 @@
     (lib/->entity
       :q-grid
       {:alpha 1
-       :world? true
-       :draw-element
-       (fn [{:keys [alpha]} elm]
-         (when-not (zero? elm)
-           (q/stroke-weight 0.1)
-           (q/with-stroke
-               defs/white
-               (q/with-fill
-                   (lib/with-alpha (lib/->hsb
-                                    (letter->color
-                                     (long elm)))
-                     alpha)
-                   (q/rect 0 0 15 15 0)))))
+       :draw-element (fn [{:keys [alpha]} elm]
+                       (when-not (zero? elm)
+                         (q/stroke-weight 0.1)
+                         (q/with-stroke
+                           defs/white
+                           (q/with-fill
+                             (lib/with-alpha
+                               (lib/->hsb (letter->color
+                                            (long elm)))
+                               alpha)
+                             (q/rect 0 0 15 15 0)))))
        :draw-functions {:grid draw-grid}
        :elements
-       (dtt/->tensor
-        (dtt/reshape
-         (dtt/compute-tensor
-          [grid-width grid-width]
-          (fn [i j]
-            (if (and (< 10 i 20) (< 10 j 20)) 1.0 0.0))
-          :float32)
-         [(* grid-width grid-width)]))
+         (dtt/->tensor
+           (dtt/reshape
+             (dtt/compute-tensor
+               [grid-width grid-width]
+               (fn [i j]
+                 (if (and (< 10 i 20) (< 10 j 20)) 1.0 0.0))
+               :float32)
+             [(* grid-width grid-width)]))
        :grid-width grid-width
        :name :world
        :spacing 20
-       :transform (lib/->transform [50 50] 0 0 1)})
-    (lib/live [:fades
-               (fn [e s _]
-                 (let [speed 0.4]
-                   (update e
-                           :alpha
-                           (fn [alpha]
-                             (mod (+ alpha
-                                     (* lib/*dt* speed))
-                                  1)))))])))
+       :transform (lib/->transform [50 50] 0 0 1)
+       :world? true})
+    (lib/live
+      [:fades
+       (fn [e s _]
+         (let [speed 0.2]
+           (update e
+                   :alpha
+                   (fn [alpha]
+                     (max 0.2
+                          (mod (+ alpha (* lib/*dt* speed))
+                               1))))))])))
 
 (defmethod lib/setup-version :berp-retina-3
   [state]
   (-> state
       (lib/append-ents
-       [
-        (world-grid)
-        (blerp-retina
-         {:color (:orange defs/color-map)
-          :grid-width grid-width
-          :interactions [[:attracted
-                          :heliotrope]]
-          :particle-id :orange
-          :pos [50 50]
-          :spacing 20})
-        ;; (blerp-retina
-        ;;  {:color (:heliotrope defs/color-map)
-        ;;   :grid-width grid-width
-        ;;   :interactions [[:attracted :orange]]
-        ;;   :particle-id :heliotrope
-        ;;   :pos [50 50]
-        ;;   :spacing 20})
+        [(world-grid)
+         (blerp-retina {:color (:orange defs/color-map)
+                        :grid-width grid-width
+                        :interactions [[:attracted
+                                        :heliotrope]]
+                        :particle-id :orange
+                        :pos [50 50]
+                        :spacing 20})
+         ;; (blerp-retina
+         ;;  {:color (:heliotrope defs/color-map)
+         ;;   :grid-width grid-width
+         ;;   :interactions [[:attracted :orange]]
+         ;;   :particle-id :heliotrope
+         ;;   :pos [50 50]
+         ;;   :spacing 20})
         ])))
 
 (sketch

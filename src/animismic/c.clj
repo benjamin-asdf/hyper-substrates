@@ -191,7 +191,7 @@
            [p/vacuum-babble-update
             p/decay-update
             p/brownian-update
-            p/normalize-update])
+            p/reset-weights-update])
           :vacuum-babble-factor (/ 1 100)
           :decay-factor 0.2
           :size grid-width
