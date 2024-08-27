@@ -132,11 +132,16 @@
     s
     (assoc s :weights (py.. field-matrix (clone)))))
 
-(defn reset-excitability-update
+(defn reset-excitability
   [{:as s :keys [t size field-matrix]}]
-  (if-not (zero? (mod t 5))
-    s
-    (assoc s :excitability (torch/ones (py.. field-matrix (size 0)) :device pyutils/*torch-device*))))
+  (assoc s
+    :excitability (torch/ones (py.. field-matrix (size 0))
+                              :device
+                              pyutils/*torch-device*)))
+
+(defn reset-excitability-update
+  [{:as s :keys [t]}]
+  (if-not (zero? (mod t 5)) s (reset-excitability s)))
 
 (defn update-grid-field
   [{:as s :keys [activations weights update-fns]}]
@@ -254,17 +259,7 @@
           :activations
           vacuum-babble
           vacuum-babble-factor))
-
-
 ;; --------
-
-
-
-
-
-
-;; --------
-
 
 ;; attract
 (defn attracted
@@ -347,8 +342,6 @@
                 (torch/add (torch/mul inputs factor) 1)
                 weights))
 
-
-
 ;; (defn resonate-update
 ;;   [field world-activations factor letter]
 ;;   (update field
@@ -358,22 +351,19 @@
 ;;                     letter)
 ;;           factor))
 
+;; ...
+;; but the concept of excitability is much more simple
+
+
 (defn update-excitability
   [exc selection factor]
-  (py/set-item! exc
-                selection
-                (torch/mul (py/get-item exc selection)
-                           factor)))
+  (py/set-item!
+   exc
+   selection
+   (torch/mul (py/get-item exc selection) factor)))
 
 (defn resonate-update
   [field world-activations factor letter]
-  ;; (update field
-  ;;         :weights
-  ;;         resonate
-  ;;         (torch/eq (pyutils/ensure-torch
-  ;;         world-activations)
-  ;;                   letter)
-  ;;         factor)
   (update field
           :excitability
           update-excitability
@@ -385,7 +375,6 @@
 
 (defn attenuation
   [excitablity activations factor]
-  (println activations)
   (if (zero? factor)
     excitablity
     (update-excitability

@@ -17,9 +17,14 @@
     [bennischwerdtner.hd.ui.audio :as audio]
     [bennischwerdtner.hd.data :as hdd]))
 
-(def berp-map
+(def blerp-map
   (hdd/clj->vsa* {:heliotrope 1 :orange (hd/->seed)}))
 
-(defn berp-resonator-force
+(defn blerp-resonator-force
   [particle-id]
-  (hdd/clj->vsa* [:?= 1 [:. berp-map particle-id]]))
+  (hdd/clj->vsa* [:?= 1 [:. blerp-map particle-id]]))
+
+
+(comment
+  (berp-resonator-force :heliotrope)
+  (berp-resonator-force :heliotrope))

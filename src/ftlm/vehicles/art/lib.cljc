@@ -19,7 +19,7 @@
     ([kind] {:id (->eid) :kind kind :spawn-time (q/millis) :entity? true :world :default})))
 
 (defn ->transform [pos width height scale]
-  {:pos pos :width width :height height :scale scale})
+  {:pos pos :width width :height height :scale scale :rotation 0})
 
 (def entities (comp vals :eid->entity))
 (def entities-by-id :eid->entity)
@@ -39,26 +39,21 @@
                                     (prn-str e)))))
     e))
 
-(defn append-ents [state ents]
-  (let [ents
-        (into ents
-              (comp
-               (mapcat :components)
-               (filter :entity?))
-              ents)
-        ]
-    (-> state
-        (update :eid->entity merge (into {} (map (juxt :id validate-entity)) ents)))))
-
 (defn flatten-components
   [ents]
-  (let [ents (into ents (comp (mapcat :components) (filter :entity?)) ents)
+  (let [ents (into ents
+                   (comp (mapcat :components)
+                         (filter :entity?))
+                   ents)
         ents (map (fn [{:as e :keys [components]}]
                     (if (:entity? (peek components))
-                      (assoc e :components (map :id components))
+                      (assoc e
+                        :components (map :id components))
                       e))
-               ents)]
+                  ents)]
     ents))
+
+
 
 (defn update--entities
   [state f]
@@ -442,69 +437,84 @@
 
 (defn track-components
   [state]
+  ;; (def state state)
+  ;; (filter :components (entities state))
   (let [parent-by-id (into {}
                            (comp
                             (remove :hidden?)
                             (filter :components)
                             (mapcat (fn [ent]
-                                      (map (juxt identity (constantly ent))
-                                           (:components ent)))))
+                                      (map
+                                       (juxt identity (constantly ent))
+                                       (:components ent)))))
                            (entities state))]
     (->
-      state
-      (update-ents
-        (fn [{:as ent :keys [id]}]
-          (if-let [parent (parent-by-id id)]
-            (let [relative-position (relative-position parent ent)
-                  parent-rotation (-> parent
-                                      :transform
-                                      :rotation)
-                  parent-scale (-> parent
-                                   :transform
-                                   :scale)
-                  scale (or
-                         (-> ent :transform :absolute-scale)
-                         (* (-> ent :transform :scale) parent-scale))]
-              (-> ent
-                  (assoc-in [:transform :pos]
-                            [(+ (first (v* [parent-scale parent-scale]
-                                           (rotate-point parent-rotation
-                                                         relative-position)))
-                                (first (-> parent
-                                           :transform
-                                           :pos)))
-                             (+ (second (v* [parent-scale parent-scale]
-                                            (rotate-point parent-rotation
-                                                          relative-position)))
-                                (second (-> parent
-                                            :transform
-                                            :pos)))])
-                  (assoc-in [:transform :rotation]
-                            (-> parent
-                                :transform
-                                :rotation))
-                  (assoc-in [:transform :scale] scale)))
-            ent))))))
+     state
+     (update-ents
+      (fn [{:as ent :keys [id]}]
+        (if-let [parent (parent-by-id id)]
+          (let [relative-position (relative-position parent ent)
+                parent-rotation (-> parent
+                                    :transform
+                                    :rotation
+                                    )
+                parent-scale (-> parent
+                                 :transform
+                                 :scale
+                                 )
+                scale (or
+                       (-> ent :transform :absolute-scale)
+                       (* (-> ent :transform :scale) parent-scale))]
+            (-> ent
+                (assoc-in [:transform :pos]
+                          [(+ (first (v* [parent-scale parent-scale]
+                                         (rotate-point parent-rotation
+                                                       relative-position)))
+                              (first (-> parent
+                                         :transform
+                                         :pos)))
+                           (+ (second (v* [parent-scale parent-scale]
+                                          (rotate-point parent-rotation
+                                                        relative-position)))
+                              (second (-> parent
+                                          :transform
+                                          :pos)))])
+                (assoc-in [:transform :rotation]
+                          (-> parent
+                              :transform
+                              :rotation))
+                (assoc-in [:transform :scale] scale)))
+          ent))))))
+
+(defn append-ents
+  [state ents]
+  (let [ents (flatten-components ents)]
+    (-> state
+        (update
+          :eid->entity
+          merge
+          (into {} (map (juxt :id validate-entity)) ents))
+        track-components)))
 
 (defn draw-entities-1
   [entities]
   (doseq [{:as entity :keys [color draw-functions]}
-            (sort (u/by (some-fn :z-index (constantly 0))
-                        u/ascending
-                        :id
-                        u/ascending)
-                  (sequence (comp (remove :hidden?)
-                                  (map validate-entity))
-                            entities))]
+          (sort (u/by (some-fn :z-index (constantly 0))
+                      u/ascending
+                      :id
+                      u/ascending)
+                (sequence (comp (remove :hidden?)
+                                (map validate-entity))
+                          entities))]
     (q/stroke-weight (or (:stroke-weight entity) 1))
     (draw-color color)
     (let [drw (fn []
                 (draw-entity entity)
                 (doall (map (fn [op] (op entity))
-                         (vals draw-functions))))]
+                            (vals draw-functions))))]
       (cond (:stroke entity)
-              (q/with-stroke (->hsb (:stroke entity)) (drw))
-              :else (drw)))))
+            (q/with-stroke (->hsb (:stroke entity)) (drw))
+            :else (drw)))))
 
 (defn draw-entities
   [state]

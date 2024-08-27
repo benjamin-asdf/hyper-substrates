@@ -30,14 +30,20 @@
     [bennischwerdtner.hd.data :as hdd]
     [animismic.lib.blerp :as b]))
 
+;; (defonce gluespace)
+
 (defn update-blerp
   [e s _]
   ;; (hd/unbind b/berp-map (:particle-id e))
   (when-let [world (first (filter :world? (lib/entities s)))]
     (let [ ;; berp-id -> alphabet
           ;;
-          factor (get {:heliotrope 1 :orange 2}
-                      (:particle-id e))
+          factor
+          ;; (get
+          ;;  {:heliotrope 1 :orange 2}
+          ;;  (:particle-id e))
+          (b/blerp-resonator-force
+           (:particle-id e))
           world-activations (:elements world)
           letter 1]
       ;; ------------------------------------------
@@ -45,50 +51,41 @@
                  [:particle-field]
                  p/resonate-update
                  world-activations
-                 factor
+                 (Math/pow (+ 1 factor) 2)
                  letter))))
 
-
-
-(defn update-glue-space []
-  )
+(defn update-glue-space [])
 
 (defn blerp-glue-space [alphabet])
-
-
 
 ;; ------------------------------------------
 ;; glooby
 ;;
-;; glues objects - oby
+;; glooby
+;; glues   ordinary objects
+;;
+;; glueby
+;;
+;; global glue object builder y
+;;
+;; goggers
 ;;
 ;;
-;;
+
+
+
 
 (defn ->glooby
   []
   (let [sdm (sdm/->sdm {:address-count (long 1e6)
                         :address-density 0.000003
-                        :word-length (long 1e4)})]
-
-    ))
+                        :word-length (long 1e4)})]))
 
 
 ;; 1. for each blerp
 ;; 2. count overlaps with the alphabet ?
 ;;
 ;;
-
-
-
-
-
-
-
-
-
-
-
 
 
 ;;
@@ -113,6 +110,30 @@
 ;;
 
 
+;; -----------
+;; Jessica Flack, "Architecture of collective computation":
+;;
+;;
+;; W - the percievable state of the world
+;; 'exogonous ground truths', social variables
+;;
+;; X - nodes on the microscopic circuit
+;;     computed from the W's
+;;
+;; Y - macroscopic coarse grainings
+;;
+;; Z - outputs made possible by Y
+;;
+
+;; ---
+;; W - 'world'
+;; X - 'blerp layer'
+;; Y - (M+H slipnet)
+;; Z -
+;;
+
+
+
 ;; __________________
 
 (def grid-width 30)
@@ -125,8 +146,6 @@
    (defs/color-map :cyan)
    (defs/color-map :green-yellow)
    (defs/color-map :magenta)])
-
-
 
 ;; --------------------
 
@@ -286,10 +305,11 @@
               p/decay-update
               p/brownian-update
               p/reset-weights-update
+              ;; p/reset-excitability
               p/reset-excitability-update
               ])
-            :vacuum-babble-factor (/ 2 200)
-            :decay-factor 0.15
+            :vacuum-babble-factor (/ 1 200)
+            :decay-factor 0.05
             :attenuation-factor 2
             :size grid-width
             :activations
@@ -363,7 +383,7 @@
                            (q/with-fill
                              (lib/with-alpha
                                (lib/->hsb (letter->color
-                                            (long elm)))
+                                           (long elm)))
                                alpha)
                              (q/rect 0 0 15 15 0)))))
        :draw-functions {:grid draw-grid}
@@ -400,24 +420,64 @@
                                       (* lib/*dt* speed)))]
                  wave-value)))))])))
 
+(defn glooby-view
+  []
+  (lib/->entity
+    :glooby
+    {:components [(lib/->entity
+                    :circle
+                    {:anchor-position [0 0]
+                     :color defs/white
+                     :transform
+                       (lib/->transform [0 0] 20 20 1)})]
+     :draw-functions
+       {:glooby (fn [e]
+                  ;;
+                  ;; --------------------------------------------------
+                  (q/stroke-weight 1)
+                  (q/with-translation
+                    (lib/position e)
+                    (let [pairs (for [a alphabet
+                                      id [:orange
+                                          :heliotrope]]
+                                  [a id])]
+                      (doseq [[n [a id]]
+                                (map-indexed vector pairs)]
+                        (q/with-translation
+                          [0 (* n 25)]
+                          (q/with-fill (lib/->hsb
+                                         (letter->color a))
+                                       (q/rect 0 0 20 20))
+                          (q/with-fill
+                            (lib/->hsb (defs/color-map id))
+                            (q/ellipse 0 0 10 10))))))
+                  ;; ---------------------------------------------------
+                )}
+     :transform (lib/->transform
+                  [(+ 50 50 (* (inc 20) grid-width)) 50]
+                  50
+                  800
+                  1)}))
+
 (defmethod lib/setup-version :berp-retina-f
   [state]
   (-> state
       (lib/append-ents
-        [(world-grid)
-         (blerp-retina {:color (:orange defs/color-map)
-                        :grid-width grid-width
-                        :interactions [[:attracted
-                                        :heliotrope]]
-                        :particle-id :orange
-                        :pos [50 50]
-                        :spacing 20})
-         (blerp-retina {:color (:heliotrope defs/color-map)
-                        :grid-width grid-width
-                        :interactions [[:attracted :orange]]
-                        :particle-id :heliotrope
-                        :pos [50 50]
-                        :spacing 20})])))
+       [(world-grid)
+        (glooby-view)
+        ;; (blerp-retina {:color (:orange defs/color-map)
+        ;;                :grid-width grid-width
+        ;;                :interactions [[:attracted
+        ;;                                :heliotrope]]
+        ;;                :particle-id :orange
+        ;;                :pos [50 50]
+        ;;                :spacing 20})
+        (blerp-retina {:color (:heliotrope defs/color-map)
+                       :grid-width grid-width
+                       :interactions [[:attracted :orange]]
+                       :particle-id :heliotrope
+                       :pos [50 50]
+                       :spacing 20})])))
 
 (sketch {:background-color 0
          :height 600
