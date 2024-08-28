@@ -26,6 +26,8 @@
   (require-python '[local_square_matrix :as lsm])
   (require '[libpython-clj2.python.np-array]))
 
+(def excitability-threshold 1e-4)
+
 ;;
 ;;
 ;; (defprotocol ParticleField
@@ -109,9 +111,9 @@
   (let [matrix (field-matrix size)]
     {:N (* size size)
      :activations
-     (torch/zeros [(* size size)] :dtype torch/float)
+       (torch/zeros [(* size size)] :dtype torch/float)
      :excitability
-     (torch/ones [(* size size)] :dtype torch/float)
+       (torch/ones [(* size size)] :dtype torch/float)
      :field-matrix matrix
      :size size
      :t 0
@@ -135,9 +137,9 @@
 (defn reset-excitability
   [{:as s :keys [t size field-matrix]}]
   (assoc s
-    :excitability (torch/ones (py.. field-matrix (size 0))
-                              :device
-                              pyutils/*torch-device*)))
+         :excitability (torch/ones (py.. field-matrix (size 0))
+                                   :device
+                                   pyutils/*torch-device*)))
 
 (defn reset-excitability-update
   [{:as s :keys [t]}]
@@ -145,12 +147,18 @@
 
 (defn update-grid-field
   [{:as s :keys [activations weights update-fns]}]
+  (def s s)
   (let [s (update s :t inc)
         s (reduce (fn [s op] (op s)) s update-fns)]
     s))
 
 (defn read-particles [{:keys [activations size]}]
   (py.. activations (view size size)))
+
+(defn read-activations [{:keys [activations]}]
+  activations)
+
+
 
 ;; (defn default-update
 ;;   [weights activations]
@@ -354,13 +362,30 @@
 ;; ...
 ;; but the concept of excitability is much more simple
 
+;; (defn update-excitability
+;;   [exc selection factor]
+;;   (py/set-item!
+;;    exc
+;;    selection
+;;    (torch/mul (py/get-item exc selection) factor)))
+
+(defn normalize-excitability
+  [excitability]
+  (torch/where (torch/ne excitability 0)
+               (torch/clamp excitability
+                            excitability-threshold)
+               excitability))
+
+(comment
+  (normalize-excitability
+   (torch/tensor [0 0 1 0 0 0 0 0 1e-6] :dtype torch/float)))
 
 (defn update-excitability
   [exc selection factor]
-  (py/set-item!
-   exc
-   selection
-   (torch/mul (py/get-item exc selection) factor)))
+  (let [current-values (py/get-item exc selection)
+        updated-values (torch/mul current-values factor)]
+    (normalize-excitability
+      (py/set-item! exc selection updated-values))))
 
 (defn resonate-update
   [field world-activations factor letter]
@@ -377,27 +402,73 @@
   [excitablity activations factor]
   (if (zero? factor)
     excitablity
-    (update-excitability
-     excitablity
-     (torch/eq activations 1)
-     (/ 1 factor))))
+    (update-excitability excitablity
+                         (torch/eq activations 1)
+                         (/ 1 factor)
+                        )))
+
+;; --------
+
 
 (comment
   (attenuation (torch/arange 3)
                (torch/tensor [false false true])
                2))
 
+
 (defn attenuation-update
   [{:as s :keys [attenuation-factor activations]}]
-  (update
-   s
-   :excitability
-   attenuation
-   activations
-   attenuation-factor))
+  (update s
+          :excitability
+          attenuation
+          activations
+          attenuation-factor))
+
+(defn directional-pull
+  [excitablity direction pull-factor]
+  ;; update the excitabilities with a gradient
+  (let [size (py.. excitablity (size 0))
+        size (long (Math/sqrt size))
+        pull-factor 1.5]
+    (normalize-excitability
+      (py.. (torch/einsum
+              "ij,i->ij"
+              (py.. excitablity (view size size))
+              (torch/add (torch/mul (torch/arange size)
+                                    pull-factor)
+                         1))
+        (view -1)))))
+
+(defn pull-update
+  [direction {:as s :keys [excitability pull-factor]}]
+  (def s s)
+  (def direction direction)
+  (update s
+          :excitability
+          directional-pull
+          direction
+          pull-factor))
 
 
+(comment
+  (torch/mul
+   (py.. (torch/arange 9) (view 3 3))
+   (torch/arange 3))
 
+  (torch/einsum
+   "ij,i->ij"
+   (py.. (torch/arange 9) (view 3 3))
+   (torch/add (torch/arange 3) 1))
+
+  (py.. (torch/arange 9) (view 3))
+
+  (directional-pull
+   (torch/arange 9)
+   :south
+   2)
+
+
+  )
 
 
 
@@ -637,6 +708,32 @@
 
 
 (comment
+
+  (f/sum (pyutils/torch->jvm (:activations field)))
+  (f/sum
+   (f/bit-and
+    (f/<= 1 (pyutils/torch->jvm (:activations field)))
+    (f/eq 1
+          (dtt/->tensor
+           (dtt/reshape
+            (dtt/compute-tensor
+             [30 30]
+             (fn [i j]
+               (if (and (< 10 i 20) (< 10 j 20)) 1.0 0.0))
+             :float32)
+            [(* 30 30)])))))
+
+  ;; ---------
+
+
+
+
+
+
+
+
+
+
 
 
 

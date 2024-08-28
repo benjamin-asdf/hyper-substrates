@@ -400,35 +400,43 @@
                                    end-pos))))))))
 
 (defn ->clock-flower
-  [{:as opts :keys [pos radius count i->fill]}]
+  [{:as opts :keys [pos radius count draw-element]}]
   (let [angle-step (/ 360 count)]
     (lib/->entity
-     :clock-circles
-     (merge
-      opts
-      {:draw-functions
-       {:1 (fn [e]
-             (doall
-              (map-indexed
-               (fn [idx _]
-                 (let [angle (* idx angle-step)
-                       center-pos pos
-                       sub-pos (lib/position-on-circle
-                                center-pos
-                                radius
-                                angle)]
-                   (q/stroke-weight 2)
-                   (q/with-stroke
-                     (lib/->hsb defs/white)
-                     (q/with-fill
-                       (or ((:i->fill e) e idx)
-                           (lib/with-alpha
-                             (lib/->hsb
-                              defs/white)
-                             0))
-                       (q/ellipse (first sub-pos)
-                                  (second sub-pos)
-                                  20
-                                  20)))))
-               (range count))))}
-       :transform (lib/->transform pos 100 100 1)}))))
+      :clock-circles
+      (merge
+        opts
+        {:draw-functions
+           {:1 (fn [e]
+                 (doall
+                   (map-indexed
+                     (fn [idx _]
+                       (let [angle (* idx angle-step)
+                             center-pos pos
+                             sub-pos (lib/position-on-circle
+                                       center-pos
+                                       radius
+                                       angle)]
+                         (if draw-element
+                           (q/with-translation
+                               ;; sub-pos
+                             [(first sub-pos) (second sub-pos)]
+
+                               (draw-element e idx))
+                           (do
+                             (q/stroke-weight 2)
+                             (q/with-stroke
+                               (lib/->hsb defs/white)
+                               (q/with-fill
+                                 (or (when (:i->fill e)
+                                       ((:i->fill e) e idx))
+                                     (lib/with-alpha
+                                       (lib/->hsb
+                                         defs/white)
+                                       0))
+                                 (q/ellipse (first sub-pos)
+                                            (second sub-pos)
+                                            20
+                                            20)))))))
+                     (range count))))}
+         :transform (lib/->transform pos 100 100 1)}))))

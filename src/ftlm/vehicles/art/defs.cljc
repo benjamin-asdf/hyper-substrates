@@ -1,6 +1,7 @@
 (ns ftlm.vehicles.art.defs)
 
 (def white [0 0 255])
+(def black [0 0 0])
 
 (def color-map
   {:amethyst-smoke {:h 272 :s 20 :v 75}

@@ -30,7 +30,30 @@
     [bennischwerdtner.hd.data :as hdd]
     [animismic.lib.blerp :as b]))
 
+;; __________________
+
+(def grid-width 30)
+
+;;
+(def alphabet (into [] (range 2)))
+
+(def letter->color
+  [0
+   (defs/color-map :cyan)
+   (defs/color-map :green-yellow)
+   (defs/color-map :magenta)])
+
+;; --------------------
+
 ;; (defonce gluespace)
+
+(defn blerp-glue-space
+  []
+  (let [sdm (sdm/->sdm {:address-count (long 1e6)
+                        :address-density 0.000003
+                        :word-length (long 1e4)})]))
+
+
 
 (defn update-blerp
   [e s _]
@@ -39,11 +62,11 @@
     (let [ ;; berp-id -> alphabet
           ;;
           factor
-          ;; (get
-          ;;  {:heliotrope 1 :orange 2}
-          ;;  (:particle-id e))
-          (b/blerp-resonator-force
+          (get
+           {:heliotrope 1 :orange 0}
            (:particle-id e))
+          ;; (b/blerp-resonator-force (:particle-id e)
+          ;;                          (:blerp-map glooby))
           world-activations (:elements world)
           letter 1]
       ;; ------------------------------------------
@@ -51,12 +74,55 @@
                  [:particle-field]
                  p/resonate-update
                  world-activations
-                 (Math/pow (+ 1 factor) 2)
-                 letter))))
+                 (Math/pow (+ 1 factor) 3)
+                 letter))
+    ;; (when-let [glooby (first (keep :glooby
+    ;;                                (lib/entities s)))])
+    ))
+
+;;
+;; 1. high excitability: explore
+;; 2. low excitability until blerps resolve 1:1 with
+;;    conceptrinos, conceptrons
+;;    (concept elements, mesoscale ideas)
+;;    (~ slipnet level)
+;; 3. High excitability again but now with the concept level
+;;    restricting
+;;
+(defn blerp-idea-pump
+  [{:keys [previous-excitability
+           phase]}]
+  ;; phase:
+  ;;
+  ;; explore:
+  ;; increase excitability
+  ;; - .. go into narrow?
+  ;; - .. stop explore?
+  ;; - .. osc
+  ;;
+  ;;
+  ;; narrow:
+  ;;  blerp resolve case:;
+  ;;  Idea1:
+  ;;   - all blerp particles completely on a single
+  ;;     letter of the alphabet
+  ;;   - update conceptrons
+  ;;
+  ;;  blerp not resolved:
+  ;;   - decrease excitability
+  ;;
+  ;;  blerps are allowed to be *gone*
+  ;;
+  ;;
+  )
 
 (defn update-glue-space [])
 
-(defn blerp-glue-space [alphabet])
+
+
+
+
+
 
 ;; ------------------------------------------
 ;; glooby
@@ -71,16 +137,6 @@
 ;; goggers
 ;;
 ;;
-
-
-
-
-(defn ->glooby
-  []
-  (let [sdm (sdm/->sdm {:address-count (long 1e6)
-                        :address-density 0.000003
-                        :word-length (long 1e4)})]))
-
 
 ;; 1. for each blerp
 ;; 2. count overlaps with the alphabet ?
@@ -128,26 +184,12 @@
 ;; ---
 ;; W - 'world'
 ;; X - 'blerp layer'
-;; Y - (M+H slipnet)
+;; Y - (Mitchels + Hofstaders slipnet)
 ;; Z -
 ;;
 
 
 
-;; __________________
-
-(def grid-width 30)
-
-;;
-(def alphabet (into [] (range 2)))
-
-(def letter->color
-  [0
-   (defs/color-map :cyan)
-   (defs/color-map :green-yellow)
-   (defs/color-map :magenta)])
-
-;; --------------------
 
 (defn env [_state] {})
 
@@ -215,7 +257,7 @@
 
 (defn setup
   [controls]
-  (q/frame-rate 15)
+  (q/frame-rate 20)
   (q/rect-mode :center)
   (q/color-mode :hsb)
   (q/background (lib/->hsb (-> controls
@@ -283,43 +325,43 @@
                          (when-not (zero? elm)
                            (q/with-stroke
                              nil
-                             (q/with-fill
-                               (lib/->hsb color)
-                               (q/ellipse
-                                0
-                                0
-                                ;; (rand-nth [-5 -2 0 2 5])
-                                ;; (rand-nth [-5 -2 0 2 5])
-                                8
-                                8)))))
+                             (q/with-fill (lib/->hsb color)
+                                          (q/ellipse
+                                            0 0
+                                            ;; (rand-nth
+                                            ;; [-5 -2 0 2
+                                            ;; 5])
+                                            ;; (rand-nth
+                                            ;; [-5 -2 0 2
+                                            ;; 5])
+                                            8 8)))))
          :draw-functions {:grid draw-grid}
          :elements []
          :grid-width grid-width
          :particle-field
-           (assoc
-            (p/grid-field
-             grid-width
-             [
-              p/attenuation-update
-              p/vacuum-babble-update
-              p/decay-update
-              p/brownian-update
-              p/reset-weights-update
-              ;; p/reset-excitability
-              p/reset-excitability-update
-              ])
-            :vacuum-babble-factor (/ 1 200)
-            :decay-factor 0.05
-            :attenuation-factor 2
-            :size grid-width
-            :activations
-            (pyutils/ensure-torch
-             (dtt/->tensor
-              (repeatedly
-               (* grid-width grid-width)
-               #(if (< (rand) 0.05) 1.0 0.0))
-              :datatype
-              :float32)))
+           (assoc (p/grid-field grid-width
+                                [p/attenuation-update
+                                 p/vacuum-babble-update
+                                 p/decay-update
+                                 (partial p/pull-update :south)
+                                 p/brownian-update
+                                 p/reset-weights-update
+                                 ;; p/reset-excitability
+                                 p/reset-excitability-update
+                                 ])
+                  :vacuum-babble-factor 0
+                  ;; (/ 1 500)
+                  :decay-factor 0
+                  :attenuation-factor 2
+                  :size grid-width
+                  :activations
+                  (pyutils/ensure-torch
+                   (dtt/->tensor
+                    (repeatedly
+                     (* grid-width grid-width)
+                     #(if (< (rand) 0.05) 1.0 0.0))
+                    :datatype
+                    :float32)))
          :particle-id particle-id
          :spacing spacing
          :transform (lib/->transform pos 0 0 1)}))
@@ -342,32 +384,7 @@
              :elements (pyutils/ensure-jvm
                          (-> e
                              :particle-field
-                             :activations)))))])
-    ;; (lib/live
-    ;;   [:decay-pump
-    ;;    (lib/every-n-seconds
-    ;;      2.5
-    ;;      (fn [e s _]
-    ;;        (if
-    ;;          (->
-    ;;            (zero? (-> e
-    ;;                       :particle-field
-    ;;                       :decay-factor)))
-    ;;          (-> e
-    ;;              (assoc-in [:particle-field
-    ;;              :decay-factor]
-    ;;                        0.08)
-    ;;              (assoc-in [:particle-field
-    ;;                         :vacuum-babble-factor]
-    ;;                        0))
-    ;;          (-> e
-    ;;              (assoc-in [:particle-field
-    ;;              :decay-factor]
-    ;;                        0)
-    ;;              (assoc-in [:particle-field
-    ;;                         :vacuum-babble-factor]
-    ;;                        (/ 1 300))))))])
-    ))
+                             :activations)))))])))
 
 (defn world-grid
   []
@@ -422,56 +439,79 @@
 
 (defn glooby-view
   []
-  (lib/->entity
+  (->
+   (lib/->entity
     :glooby
     {:components [(lib/->entity
-                    :circle
-                    {:anchor-position [0 0]
-                     :color defs/white
-                     :transform
-                       (lib/->transform [0 0] 20 20 1)})]
+                   :circle
+                   {:anchor-position [0 0]
+                    :color defs/white
+                    :transform
+                    (lib/->transform [0 0] 20 20 1)})]
      :draw-functions
-       {:glooby (fn [e]
-                  ;;
-                  ;; --------------------------------------------------
-                  (q/stroke-weight 1)
-                  (q/with-translation
+     {:glooby (fn [e]
+                ;;
+                ;; --------------------------------------------------
+                (q/stroke-weight 1)
+                (q/with-translation
                     (lib/position e)
                     (let [pairs (for [a alphabet
                                       id [:orange
                                           :heliotrope]]
                                   [a id])]
                       (doseq [[n [a id]]
-                                (map-indexed vector pairs)]
+                              (map-indexed vector pairs)]
                         (q/with-translation
-                          [0 (* n 25)]
-                          (q/with-fill (lib/->hsb
-                                         (letter->color a))
-                                       (q/rect 0 0 20 20))
-                          (q/with-fill
-                            (lib/->hsb (defs/color-map id))
-                            (q/ellipse 0 0 10 10))))))
-                  ;; ---------------------------------------------------
+                            [0 (* n 25)]
+                            (q/with-fill (lib/->hsb
+                                          (letter->color a))
+                              (q/rect 0 0 20 20))
+                            (q/with-fill
+                                (lib/->hsb (defs/color-map id))
+                                (q/ellipse 0 0 10 10))))))
+                ;; ---------------------------------------------------
                 )}
      :transform (lib/->transform
-                  [(+ 50 50 (* (inc 20) grid-width)) 50]
-                  50
-                  800
-                  1)}))
+                 [(+ 50 50 (* (inc 20) grid-width)) 50]
+                 50
+                 800
+                 1)
+
+     :glooby
+     {:alphabet alphabet
+      :blerp-map
+      (hdd/clj->vsa*
+       {:heliotrope (hd/->seed)
+        :orange (hd/->seed)})}
+     })
+   (lib/live
+    [:update
+     (fn [e s _]
+       (when-let [world (first (filter :world? (lib/entities s)))]
+         (update
+          e
+          :glooby
+          (fn [gl]
+            (b/update-glooby
+             gl
+             (field-map s)
+             (:elements world)))))
+       e)])))
 
 (defmethod lib/setup-version :berp-retina-f
   [state]
   (-> state
       (lib/append-ents
-       [(world-grid)
-        (glooby-view)
-        ;; (blerp-retina {:color (:orange defs/color-map)
-        ;;                :grid-width grid-width
-        ;;                :interactions [[:attracted
-        ;;                                :heliotrope]]
-        ;;                :particle-id :orange
-        ;;                :pos [50 50]
-        ;;                :spacing 20})
+       [
+        (world-grid)
+        ;; (glooby-view)
+        (blerp-retina {:color (:orange defs/color-map)
+                       :grid-width grid-width
+                       :interactions [[:attracted
+                                       :heliotrope]]
+                       :particle-id :orange
+                       :pos [50 50]
+                       :spacing 20})
         (blerp-retina {:color (:heliotrope defs/color-map)
                        :grid-width grid-width
                        :interactions [[:attracted :orange]]
