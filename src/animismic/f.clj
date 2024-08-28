@@ -63,7 +63,7 @@
           ;;
           factor
           (get
-           {:heliotrope 1 :orange 0}
+           {:heliotrope 0 :orange 0}
            (:particle-id e))
           ;; (b/blerp-resonator-force (:particle-id e)
           ;;                          (:blerp-map glooby))
@@ -341,17 +341,17 @@
          :particle-field
            (assoc (p/grid-field grid-width
                                 [p/attenuation-update
-                                 p/vacuum-babble-update
+                                 ;; p/vacuum-babble-update
                                  p/decay-update
-                                 (partial p/pull-update :south)
+                                 ;; (partial p/pull-update :south)
                                  p/brownian-update
                                  p/reset-weights-update
                                  ;; p/reset-excitability
                                  p/reset-excitability-update
                                  ])
-                  :vacuum-babble-factor 0
+                  :vacuum-babble-factor 0.0
                   ;; (/ 1 500)
-                  :decay-factor 0
+                  :decay-factor 0.01
                   :attenuation-factor 2
                   :size grid-width
                   :activations
@@ -365,7 +365,7 @@
          :particle-id particle-id
          :spacing spacing
          :transform (lib/->transform pos 0 0 1)}))
-    (lib/live [:blerp-resonate update-blerp])
+    (lib/live [:blerp-resonate #'update-blerp])
     (lib/live
       [:particle
        (fn [e s _]
@@ -526,4 +526,151 @@
          :width 800})
 
 (comment
-  (do (reset! lib/the-state nil) (System/gc)))
+  (do
+    (reset! lib/the-state nil)
+    (System/gc))
+
+  (def address-decoder
+    (sdm/->decoder-coo {:address-count (long 1e5)
+                        :address-density 1e-4
+                        :word-length 900}))
+  (def sdm-storage
+    (sdm/->sdm-storage-coo
+     {:address-count (long 1e5)
+      :word-length 900}))
+
+  (sdm/write-1
+   sdm-storage
+   (sdm/decode-address
+    address-decoder
+    (:activations (:heliotrope (field-map @lib/the-state)))
+    1)
+   (p/read-hdv (:heliotrope (field-map @lib/the-state))))
+
+
+  (hd/similarity
+   (hdd/clj->vsa :heliotrope)
+   (pyutils/torch->jvm
+    (:result (sdm/lookup-1
+              sdm-storage
+              (sdm/decode-address
+               address-decoder
+               (:activations
+                (:heliotrope (field-map @lib/the-state)))
+               1)
+              1))))
+
+
+  (sdm/write-1
+   sdm-storage
+   (sdm/decode-address
+    address-decoder
+    (:activations (:heliotrope (field-map @lib/the-state)))
+    1)
+   (p/read-hdv (:heliotrope (field-map @lib/the-state))))
+
+  (torch/sum
+   (:result
+    (sdm/lookup-1
+     sdm-storage
+     (sdm/decode-address
+      address-decoder
+      (:activations
+       (:heliotrope (field-map @lib/the-state)))
+      1)
+     1
+     {:bsdc-seg/segment-length
+      50
+      :bsdc-seg/N (long 1e4)
+      :bsdc-seg/segment-count
+      (/ (long 1e4) 50)})))
+
+  (sdm/decode-address
+   address-decoder
+   (:activations (:heliotrope (field-map @lib/the-state)))
+   1)
+
+  (def t1 (pyutils/ensure-jvm
+           (p/read-hdv (:heliotrope (field-map @lib/the-state)))))
+
+  (hd/similarity
+   t1
+   (pyutils/ensure-jvm
+    (p/read-hdv (:heliotrope (field-map @lib/the-state)))))
+
+  (def p (hd/->seed))
+  (f/sum (hd/bind t1 p))
+
+  (hd/similarity
+   t1
+   (hd/unbind (hd/bind t1 p) p))
+
+  (def particle-map
+    (into {}
+          (comp (filter :particle-id)
+                (map (juxt :particle-id :id)))
+          (lib/entities @lib/the-state)))
+
+  (swap! lib/the-state
+         update-in
+         [:eid->entity (:orange particle-map)
+          :particle-field :activations]
+         (constantly
+          (torch/zeros 900)))
+
+  (swap! lib/the-state
+         update-in
+         [:eid->entity (:heliotrope particle-map)
+          :particle-field :activations]
+         (constantly
+          (torch/zeros 900)))
+
+  (let [particle-map
+        (into {}
+              (comp (filter :particle-id)
+                    (map (juxt :particle-id :id)))
+              (lib/entities @lib/the-state))]
+    (swap! lib/the-state
+           update-in
+           [:eid->entity (:heliotrope particle-map)
+            :particle-field :activations]
+           (constantly
+            (torch/cat
+             [
+              (torch/ones 30)
+              (torch/zeros (- 900 30))]))))
+
+
+  (let [particle-map
+        (into {}
+              (comp (filter :particle-id)
+                    (map (juxt :particle-id :id)))
+              (lib/entities @lib/the-state))]
+    (swap! lib/the-state
+           update-in
+           [:eid->entity (:heliotrope particle-map)
+            :particle-field :activations]
+           (constantly
+            (:result
+             (sdm/lookup-1
+              sdm-storage
+              (sdm/decode-address
+               address-decoder
+               (:activations
+                (:heliotrope (field-map @lib/the-state)))
+               1)
+              1
+              {:bsdc-seg/N 900
+               :bsdc-seg/segment-count 30
+               :bsdc-seg/segment-length 30})))))
+
+  (pyutils/torch->jvm
+   (:result
+    (sdm/lookup-1
+     sdm-storage
+     (sdm/decode-address
+      address-decoder
+      (:activations
+       (:heliotrope (field-map @lib/the-state)))
+      1)
+     1))))

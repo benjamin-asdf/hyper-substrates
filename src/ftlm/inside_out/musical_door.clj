@@ -159,12 +159,11 @@
       (into []
             (map
               (fn [{:as e :keys [blinks?]}]
-                (def e e)
                 (cond-> e
                   blinks?
                     (update
                       :strength
-                      (let [speed 1
+                      (let [speed 2
                             cycle-duration 1000]
                         (fn [alpha]
                           (let [fade-factor
@@ -182,10 +181,9 @@
                             wave-value))))
                   (some-> (:end e)
                           (< (q/millis)))
-                    (assoc
-                     :blinks?
-                     false :visible?
-                     false))))
+                    (assoc :blinks?
+                      false :visible?
+                      false))))
             elements)))
 
 (defn door
@@ -245,9 +243,9 @@
                                       (fn [e]
                                         (when-let [end (:end
                                                          e)]
-                                          (<
-                                           (- (q/millis) end)
-                                           1000)))
+                                          (< (- (q/millis)
+                                                end)
+                                             1000)))
                                       :blinks?))
                                   (map :idx))
                                 (:elements e)))))]
@@ -267,7 +265,6 @@
        [(door)])))
 
 (sketch {:background-color 0
-
          :height 600
          :time-speed 3
          :v :musical-door-1

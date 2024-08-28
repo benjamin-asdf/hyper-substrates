@@ -24,6 +24,7 @@
   (require-python '[torch :as torch])
   (require-python '[torch.sparse :as torch.sparse])
   (require-python '[local_square_matrix :as lsm])
+  (require-python '[builtins :as builtins])
   (require '[libpython-clj2.python.np-array]))
 
 (def excitability-threshold 1e-4)
@@ -157,6 +158,45 @@
 
 (defn read-activations [{:keys [activations]}]
   activations)
+
+(defn read-hdv
+  ([s] (read-hdv s hd/default-opts))
+  ([{:keys [activations size]}
+    {:bsdc-seg/keys [segment-length N]}]
+
+   ;; (py.. activations (view size size))
+
+   (py/set-item!
+    (torch/zeros N :device pyutils/*torch-device*)
+    (builtins/slice 0 (py.. activations (size 0)))
+    activations)))
+
+(defn rand-activations
+  [N density]
+  (py.. (torch/lt
+          (torch/rand [N] :device pyutils/*torch-device*)
+          density)
+    (to :dtype torch/float)))
+
+
+
+
+(comment
+
+  (py/set-item!
+   (py.. (torch/zeros 30) (view -1 10))
+   (builtins/slice 0 10)
+   (py.. (torch/arange 9) (view 3 3)))
+
+  (py/set-item!
+   (py.. (torch/zeros 30) (view -1 10))
+   (builtins/slice 0 10)
+   (py.. (torch/arange 9) (view 3 3)))
+
+
+
+
+  )
 
 
 
