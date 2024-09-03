@@ -105,16 +105,55 @@
   ;; i->j, directed graph with geometry around each i
   (log-normal-field-matrix field-size 2 2))
 
+
+;; --------------
+
+;; Inhibitory interneurons
+
+;; . . . .
+;; . . . .
+;; . X---|
+;; . . . .
+;;
+
+;; idea 1:
+;; Random negative weights in the matrix
+;; (guess that would be generalization of hopfield nets)
+;;
+;; idea 2:
+;; model basket cells with rand connections and their own activity
+;;
+;;
+;; idea 3:
+;; does a cap-k logic already implement this essentially?
+;;
+;;
+
+
+
+
+
+
+
+
+
+
+
+
 ;; --------------
 
 (defn grid-field
   [size update-fns]
   (let [matrix (field-matrix size)]
     {:N (* size size)
-     :activations
-       (torch/zeros [(* size size)] :dtype torch/float)
-     :excitability
-       (torch/ones [(* size size)] :dtype torch/float)
+     :activations (torch/zeros [(* size size)]
+                               :dtype torch/float
+                               :device
+                               pyutils/*torch-device*)
+     :excitability (torch/ones [(* size size)]
+                               :dtype torch/float
+                               :device
+                               pyutils/*torch-device*)
      :field-matrix matrix
      :size size
      :t 0
@@ -370,7 +409,7 @@
   ;;    fields-ids)))
   ;;  field
   ;;  spec)
-)
+  )
 
 
 
@@ -455,8 +494,9 @@
                (torch/tensor [false false true])
                2))
 
-
 (defn attenuation-update
+  "Attenuation with less than `attenuation-factor` 1 is an intrinsic excitability gain implementation.
+  "
   [{:as s :keys [attenuation-factor activations]}]
   (update s
           :excitability
@@ -477,122 +517,23 @@
               (torch/add (torch/mul (torch/arange size)
                                     pull-factor)
                          1))
-        (view -1)))))
+            (view -1)))))
 
 (defn pull-update
   [direction {:as s :keys [excitability pull-factor]}]
-  (def s s)
-  (def direction direction)
   (update s
           :excitability
           directional-pull
           direction
           pull-factor))
 
-
 (comment
-  (torch/mul
-   (py.. (torch/arange 9) (view 3 3))
-   (torch/arange 3))
-
-  (torch/einsum
-   "ij,i->ij"
-   (py.. (torch/arange 9) (view 3 3))
-   (torch/add (torch/arange 3) 1))
-
-  (py.. (torch/arange 9) (view 3))
-
-  (directional-pull
-   (torch/arange 9)
-   :south
-   2)
-
-
-  )
-
-
-
-
-
-
-
-(comment
-
-
-
-
-  (let [exc (torch/arange 3)
-        factor 10]
-    (let [selection (torch/tensor [false false true])]
-      (py/set-item! exc
-                    selection
-                    (torch/mul (py/get-item exc selection)
-                               factor))))
-
 
 
   (torch/einsum "i,i->i"
                 (torch/add (torch/mul inputs factor) 1)
                 )
-
-
-  (py/set-item! (torch/ones [3]))
-
-  (torch/einsum
-   "i,i->i"
-   (torch/arange 3)
-   (torch/tensor [1 1 2]))
-
-  (torch/wher
-   0
-   (torch/ones [3])
-   (torch/mul (torch/ones [3]) 2))
-
-  (torch/index_add
-   (torch/arange 3)
-   0
-   [0 0 1]
-   (torch/arange 3))
-
-  (torch/index_add
-   (torch/arange 3)
-   0
-   (torch/tensor [1 1 1])
-   (torch/arange 3))
-
-  (torch/index_add
-   (torch/arange 3)
-   0
-   (torch/tensor [1 1 1])
-   (torch/arange 3))
-  (torch/scatter_addv )
-
-
-
-  (py/set-item!
-   (torch/arange 3)
-   (torch/tensor [false false true])
-   (torch/mul (py/get-item (torch/arange 3)
-                           (torch/tensor
-                            [false false true]))
-              2))
-
-  (torch/masked )
-
-
-
-
-
-
-
-
-
-
-  (def spec [[:attracted :orange]])
-  (interaction-update {:weights (torch/tensor [0 2 0])}
-                      {:orange {:weights (torch/tensor
-                                          [0 2 0])}}
-                      spec))
+  )
 
 ;; --------
 (comment
@@ -606,9 +547,6 @@
     (py/set-item! (torch/ones [9 9]) 2 2))
    (torch/tensor [1 0 0 0 0 0 0 0 0] :dtype torch/float))
 
-
-
-
   (default-update
    (torch/tensor
     [[0 0 1]
@@ -616,14 +554,7 @@
      [0 0 1]]
     :dtype
     torch/float)
-   (torch/tensor [0 1 0] :dtype torch/float))
-
-
-
-
-
-
-  )
+   (torch/tensor [0 1 0] :dtype torch/float)))
 
 
 (comment
@@ -744,9 +675,6 @@
 
 
 
-
-
-
 (comment
 
   (f/sum (pyutils/torch->jvm (:activations field)))
@@ -764,16 +692,6 @@
             [(* 30 30)])))))
 
   ;; ---------
-
-
-
-
-
-
-
-
-
-
 
 
 

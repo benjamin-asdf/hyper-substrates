@@ -351,7 +351,8 @@
                                  ])
                   :vacuum-babble-factor 0.0
                   ;; (/ 1 500)
-                  :decay-factor 0.01
+                  :decay-factor 0
+                  ;; 0.01
                   :attenuation-factor 2
                   :size grid-width
                   :activations
@@ -503,7 +504,7 @@
   (-> state
       (lib/append-ents
        [
-        (world-grid)
+        ;; (world-grid)
         ;; (glooby-view)
         (blerp-retina {:color (:orange defs/color-map)
                        :grid-width grid-width
@@ -517,13 +518,20 @@
                        :interactions [[:attracted :orange]]
                        :particle-id :heliotrope
                        :pos [50 50]
+                       :spacing 20})
+        (blerp-retina {:color (:green-yellow defs/color-map)
+                       :grid-width grid-width
+                       :interactions [[:attracted :orange]]
+                       :particle-id :green-yellow
+                       :pos [50 50]
                        :spacing 20})])))
 
 (sketch {:background-color 0
-         :height 600
-         :time-speed 3
-         :v :berp-retina-f
-         :width 800})
+         :time-speed
+         3 :v
+         :berp-retina-f
+         :height 1200
+         :width 1200})
 
 (comment
   (do
