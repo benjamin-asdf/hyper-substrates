@@ -1,0 +1,36 @@
+
+
+[[edraw:data=H4sIAHZR02YAA7VWW2+bMBT+K5b7skkhGMIoqQCpnRT1ZS97Wbc3CgasgI1sJ9D9+h1jSNKukTppCGN8Pd93riJWxwoNbcNVgmutuzvX7ft+3W/WQlauTwhx4QS2R+6GhvH9ewe97XbrjrsY9azQdYK/hASjmrKq1gkOfJgcqVRM8AR7aw+ncUFLhViRYFrIrHfMFFbbTO6pfL3uECeTUvQY2d0fFiGc548TCix0kioqj/RedTTX3zPNRIK54BTgGe0fxJBgxyPIvL5pGElaPiXYDn6OAyEZ5SAvO2iBkdJS7OkspWRNk+Abj5gH+HaZrhGQ/QYSV86tEby6RcGK/MLITWPXMoSB0S+NJbBCw4jyMvZXrXW2wHOW7yspDry4QqYsyxGsurwkihc84dlLzgTln6XMapwEReY5E/HImeE4Bs6+ITdMXwDVdNDIdE7G81rIBLesKBrDTnDtlFnLGrimMq4ccA0rpw3FfgMDL3prUoOxIRZjE4CJ72PXiF8IadJmA/ZPFeUKfJ8vChhdAD43VHYIUGkLQzXj0qZhnaIf99sujLa7HUSw8Y+J5MF+czM3gLlZCK3D/n9IhMtHhBdcRMTDkg7ywgsHtUJfBsRipguWs5xPThDp11mRsWrZ0uRQDkXjIJtPN38V3M/4w9ragmQKIaiGPJ/UV9qo6KL40Yh/vNJeE/nnVJud+l6qef6UatGSwv1oeRv6xobBW9M9Qgk5Lpjk/pTkJvNywXPa6VNNdCt44Vck/QNsQm21sggAAA==]]
+
+
+The basic idea is that blerps can randomly hit on a connectivity (recruit the right neurons) to say
+"look at me" at the motoric areas and "think me" to the concept areas.
+
+
+
+concept + motor data in turn creates expectation states at the blerp layer.
+
+
+
+
+
+
+* Blerps
+
+- The initial idea is to make something like Vehicle 1, but this time have top-down constraints
+  (system variables) that take over the sensor so to say
+
+
+
+** Composite Blerp
+
+-
+
+
+* Program synthesis
+
+* Thought pump
+
+* Coarse Graining
+
+* Outputs
