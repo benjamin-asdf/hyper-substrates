@@ -33,7 +33,7 @@ Brownian local explorer resonator particle.
 - =vacum-babble=: Random elements fire (also intrinsic firing rate).
 - =decay=: Random elements are erased (neuron failure rate).
 - This gives ensembles a /half-time/.
-
+- Activity must survive this decay assault, it must /regenerate/. (or die).
 - the resonator part is the idea that top-down processes constrain which nodes are especially excitable for the blerp.
   (figuring it out)
 
