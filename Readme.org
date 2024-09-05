@@ -1,0 +1,86 @@
+
+* Hyper Substrates
+
+Visualizing 'ensemble' neuronal nets.
+This is one of several rewrites and will not be the last.
+(An earlier installement: [[https://vehicles.faster-than-light-memes.xyz/art/p/assembly-friends/4][assembly-friends]], runs in the browser).
+
+My current line of thinking is to make something 'biological' (substrate-like), and put it together
+with a hyper dimensional computing, associative memory, framework. ([[https://faster-than-light-memes.xyz/high-dimensional-computing-with-sparse-vectors.html][Current stuff]]).
+
+The point of this is to explore how to bring in randomness, selection ([[https://en.wikipedia.org/wiki/Neural_Darwinism][Neural Darwinism]]), conjecture and critism (David Deutsch)
+and meme-like (Dennett), self-growing, self-stabilizing software elements.
+
+Since I am a visual person and I want to /feel/ what I program, I build this stuff here, to see what it does.
+
+
+* Blerp
+
+Brownian local explorer resonator particle.
+
+- =particle-field=.
+- Each node is connected to itself and it's immediate neighbours (local).
+- Time is discrete, at each time step =A= (activation) particles are selected (global inhibition model).
+- This makes /ensembles/.
+- They are in some ways a little bit like the gliders of this physics system.
+- With =adaptation= (=attenuation=): Each node has a lower chance to fire when it is active
+  (making it move like an ameaba).
+- =vacum-babble=: Random elements fire (also intrinsic firing rate).
+- =decay=: Random elements are erased (neuron failure rate).
+- This gives ensembles a /half-time/.
+
+- the resonator part is the idea that top-down processes constrain which nodes are especially excitable for the blerp.
+  (figuring it out)
+
+
+file:https://drive.google.com/file/d/1FzKIxnld6xk2b6WQIYcqZCyWtWSR4ii8/view?usp=sharing
+(does drive link work? Not sure).
+
+[more soon]
+
+
+* Brain Constraint?
+
+This depends on ones sense of aesthetic.
+
+Global inhibition and recurrent connections create neuronal ensembles.
+And the neuronal ensembles make sense to me as a mesoscale brain software element.
+
+[[https://youtu.be/MIkyfEWAflY?si=89oe5Te35pHelEBz][LLM Understanding: 2. F. PULVERMUELLER "Semantic grounding in brain-constrained neural networks"]].
+
+
+- emphasis on internally generated dynamics (Buzsáki)
+- weights with log normal distribution (Buzsáki)
+
+
+
+* Substrate-like?
+
+- constrain the software to be biologically principled.
+
+There are elements following local rules, which must self-organise, grow and regenerate.
+
+Because we try to build software out of elements that must self organise, you get something
+that must be robust. It must deal with being unreliable and not-there anyway, because it must
+build itself in the first place.
+
+I'm fine with trying to explore substrate-like elements embedded in a conventional software architecture.
+Using the power of computing that we already made available to ourselfes with software and programing languages,
+and tyring to build in some self-growing, self-exploring 'subroutines'.
+
+I.e. Something like blerps at the bottom, but perhaps just Lisp on mesoscale and macroscale levels.
+
+Inspirations:
+
+- [[https://youtu.be/7hwO8Q_TyCA?si=OFF73KkKeWt9TQQt][Dave Ackley Robust First]]
+- [[https://en.wikipedia.org/wiki/Turing_pattern][Turing patterns]]
+  (and I think substrate-like computing is a continuation of Turings project, the one he did before he died to soon).
+- [[https://youtu.be/S7582jc5Hnk?si=h-6YArnxwqPi_dPH][chemical computing]]
+
+
+* Lit
+
+Buzsáki, G. (2019). The Brain From Inside Out. New York: Oxford University.
+
+FRIEDEMANN PULVERMÜLLER
+https://www.sciencedirect.com/science/article/abs/pii/0149763495000682
