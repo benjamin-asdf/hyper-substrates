@@ -89,6 +89,26 @@ Inspirations:
 - [[https://youtu.be/S7582jc5Hnk?si=h-6YArnxwqPi_dPH][chemical computing]]
 
 
+* Run
+
+- have some kind of python env
+
+#+begin_src
+pip install torch numpy
+#+end_src
+
+
+I do this with
+
+#+begin_src
+  python -m venv venv
+#+end_src
+
+Then, I use run.sh via dev.el.
+
+With the repl running, you eval a file like file:src/animismic/g.clj.
+
+
 * Lit
 
 Buzsáki, G. (2019). The Brain From Inside Out. New York: Oxford University.
