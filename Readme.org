@@ -97,17 +97,19 @@ Inspirations:
 pip install torch numpy
 #+end_src
 
-
 I do this with
 
 #+begin_src
   python -m venv venv
+  . activate.sh
+  pip install torch numpy
 #+end_src
 
 Then, I use run.sh via dev.el.
 
 With the repl running, you eval a file like file:src/animismic/g.clj.
 
+If you have cuda, this uses the gpu.
 
 * Lit
 
