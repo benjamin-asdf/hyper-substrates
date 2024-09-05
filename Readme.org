@@ -1,14 +1,14 @@
 * Hyper Substrates
 
-Visualizing 'ensemble' neuronal nets.
+Visualizing 'ensemble' (Braitenberg, Schütz, Palm, Pulvermüller, Yuste, Buzsáki, Von Der Malsburg, etc.) neuronal nets.
 This is one of several rewrites and will not be the last.
 (An earlier installement: [[https://vehicles.faster-than-light-memes.xyz/art/p/assembly-friends/4][assembly-friends]], runs in the browser).
 
 My current line of thinking is to make something 'biological' (substrate-like), and put it together
-with a hyper dimensional computing, associative memory, framework. ([[https://faster-than-light-memes.xyz/high-dimensional-computing-with-sparse-vectors.html][Current stuff]]).
+with a hyper dimensional computing - and associative memory - framework. ([[https://faster-than-light-memes.xyz/high-dimensional-computing-with-sparse-vectors.html][Current stuff]]).
 
-The point of this is to explore how to bring in randomness, selection ([[https://en.wikipedia.org/wiki/Neural_Darwinism][Neural Darwinism]]), conjecture and critism (David Deutsch)
-and meme-like (Dennett), self-growing, self-stabilizing software elements.
+The point of this is to explore how to bring in randomness (variation), selection ([[https://en.wikipedia.org/wiki/Neural_Darwinism][Neural Darwinism]]), conjecture and critism (David Deutsch)
+and meme-like (Dennett), self-growing (Turing, Levin), self-stabilizing (dare I mention autopoetic) software elements.
 
 Since I am a visual person and I want to /feel/ what I program, I build this stuff here, to see what it does.
 
@@ -54,7 +54,6 @@ And the neuronal ensembles make sense to me as a mesoscale brain software elemen
 - weights with log normal distribution (Buzsáki)
 
 
-
 * Substrate-like?
 
 - constrain the software to be biologically principled.
@@ -70,7 +69,6 @@ Using the power of computing that we already made available to ourselfes with so
 and tyring to build in some self-growing, self-exploring 'subroutines'.
 
 I.e. Something like blerps at the bottom, but perhaps just Lisp on mesoscale and macroscale levels.
-
 
 Inspirations:
 
