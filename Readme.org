@@ -23,7 +23,7 @@ Perhaps no more than the ideas of an idea of an object.
 
 Brownian local explorer resonator particle.
 
-- =particle-field=.
+- =particle-field= is a directed graph (on a 2d grid).
 - Each node is connected to itself and it's immediate neighbours (local).
 - Time is discrete, at each time step =A= (activation) particles are selected (global inhibition model).
 - This makes /ensembles/.
