@@ -17,6 +17,10 @@ This is a kind of a-life excerice.
 
 * Blerp
 
+When I close my eyes I am not blind. There is a shimmering there. Vaguely colorful blobs swirling. Perhaps manifesting
+into the hints of edges, then ebbing and flowing, washed away by some force of nature which they are not able to whithstand.
+Perhaps no more than the ideas of an idea of an object.
+
 Brownian local explorer resonator particle.
 
 - =particle-field=.
@@ -36,7 +40,6 @@ Brownian local explorer resonator particle.
 #+CAPTION: Just some blerps coming from a locally connected graph and some randomness
 https://drive.google.com/file/d/1FzKIxnld6xk2b6WQIYcqZCyWtWSR4ii8/view?usp=sharing
 (does drive link work? Not sure).
-
 
 [more soon]
 
