@@ -9,6 +9,7 @@ with a hyper dimensional computing - and associative memory - framework. ([[http
 
 The point of this is to explore how to bring in randomness (variation), selection ([[https://en.wikipedia.org/wiki/Neural_Darwinism][Neural Darwinism]]), conjecture and critism (David Deutsch)
 and meme-like (Dennett), self-growing (Turing, Levin), self-stabilizing (dare I mention autopoetic) software elements.
+(Such randomness is discussed in Mitchell and Hofstadter [[https://en.wikipedia.org/wiki/Copycat_(software)][1988]]).
 
 Since I am a visual person and I want to /feel/ what I program, I build this stuff here, to see what it does.
 
