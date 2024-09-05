@@ -146,7 +146,7 @@
                                        toroidal_diff))
         distances
           (torch/sum (torch/abs toroidal_diff_min) :dim 2)
-        adjacency (torch/le distances 2)
+        adjacency (torch/le distances distance)
         adjacency (py.. adjacency (to :dtype torch/float))]
     adjacency))
 
@@ -339,8 +339,6 @@
                weights))
   weights)
 
-(defn brownian-weights [])
-
 (comment
   (def weights (torch/rand [3 3]))
   (torch/mul weights
@@ -361,29 +359,25 @@
 
 (defn interact-inhibiting
   [field-producer field-inhibitor factor]
-  (let [ ;;
+  (let [;;
         ;;
         ;; update activations of field-producer so that
         ;; there are fewer,
         ;;
         activations (:activations field-producer)
         idxs-killed
-        (py.. (torch/topk
-               (current-inputs field-inhibitor)
-               (min (py.. activations (size 0))
-                    (long (* factor
-                             (py.. (torch/sum
-                                    (:activations
-                                     field-inhibitor))
-                               (item))))))
-          -indices)
+          (py.. (torch/topk
+                  (current-inputs field-inhibitor)
+                  (min (py.. activations (size 0))
+                       (long (* factor
+                                (py.. (torch/sum
+                                        (:activations
+                                          field-inhibitor))
+                                      (item))))))
+                -indices)
         _ (py.. activations (index_fill_ 0 idxs-killed 0))])
   field-producer)
 
-
-;; -------------
-
-(defn update-weights-brownian [])
 
 ;; --------
 
@@ -442,17 +436,12 @@
   [{:as s :keys [activations decay-factor]}]
   (update s :activations decay decay-factor))
 
-
-
-
 (defn vacuum-babble-update
   [{:as s :keys [activations vacuum-babble-factor]}]
   (update s
           :activations
           vacuum-babble
           vacuum-babble-factor))
-
-
 
 
 ;; --------
@@ -468,9 +457,6 @@
           weight
           weights))
 
-
-
-
 ;; (defn intersect
 ;;   [weight & weights]
 ;;   (let [boost-factor 5]                 ; Adjust this value to
@@ -483,7 +469,6 @@
 ;;          (/ 1 boost-factor)))
 ;;       weight
 ;;       weights))))
-
 
 
 ;; repel
@@ -505,8 +490,7 @@
 ;;             (apply attracted w (map :weights fields)))))
 
 (defmethod interact :production
-  [_ field-target {:keys [production-factor]} & fields]
-  )
+  [_ field-target {:keys [production-factor]} & fields])
 
 (comment
   (interact :attracted
@@ -589,11 +573,9 @@
     excitablity
     (update-excitability excitablity
                          (torch/eq activations 1)
-                         (/ 1 factor)
-                        )))
+                         (/ 1 factor))))
 
 ;; --------
-
 
 (comment
   (attenuation (torch/arange 3)
