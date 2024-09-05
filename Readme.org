@@ -1,4 +1,3 @@
-
 * Hyper Substrates
 
 Visualizing 'ensemble' neuronal nets.
@@ -13,6 +12,7 @@ and meme-like (Dennett), self-growing, self-stabilizing software elements.
 
 Since I am a visual person and I want to /feel/ what I program, I build this stuff here, to see what it does.
 
+This is a kind of a-life excerice.
 
 * Blerp
 
@@ -69,6 +69,7 @@ Using the power of computing that we already made available to ourselfes with so
 and tyring to build in some self-growing, self-exploring 'subroutines'.
 
 I.e. Something like blerps at the bottom, but perhaps just Lisp on mesoscale and macroscale levels.
+
 
 Inspirations:
 
