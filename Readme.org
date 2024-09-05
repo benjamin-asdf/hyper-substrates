@@ -77,7 +77,7 @@ Inspirations:
 
 - [[https://youtu.be/7hwO8Q_TyCA?si=OFF73KkKeWt9TQQt][Dave Ackley Robust First]]
 - [[https://en.wikipedia.org/wiki/Turing_pattern][Turing patterns]]
-  (and I think substrate-like computing is a continuation of Turings project, the one he did before he died to soon).
+  (Perhaps substrate-like computing is a continuation of Turings project).
 - [[https://youtu.be/S7582jc5Hnk?si=h-6YArnxwqPi_dPH][chemical computing]]
 
 
