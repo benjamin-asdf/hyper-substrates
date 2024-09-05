@@ -55,6 +55,11 @@ And the neuronal ensembles make sense to me as a mesoscale brain software elemen
 
 - emphasis on internally generated dynamics (Buzsáki)
 - weights with log normal distribution (Buzsáki)
+- classically, the recurrent neuronal nets
+  (coming now in deep learning and cognitive modeling again as modern Hopfield nets)
+  use local plasticity (for instance Hebbian Learning).
+
+
 
 
 * Substrate-like?
