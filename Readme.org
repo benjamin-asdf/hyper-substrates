@@ -15,7 +15,7 @@ Since I am a visual person and I want to /feel/ what I program, I build this stu
 
 This is a kind of a-life excerice. And a hammock driven delopment thing.
 
-* Brownian local explorer resonator particle - Blerp
+* Brownian Local Explorer Resonator Particle - Blerp
 
 When I close my eyes I am not blind. There is a shimmering there. Vaguely colorful blobs swirling. Perhaps manifesting
 into the hints of edges, then ebbing and flowing, washed away by some force of nature which they are not able to whithstand.
