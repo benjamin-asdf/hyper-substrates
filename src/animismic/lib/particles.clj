@@ -100,22 +100,31 @@
         log-normal-matrix (torch/mul base-matrix log-normal-noise)]
     log-normal-matrix))
 
+(defn distribute-log-normal
+  [base-matrix mu sigma]
+  (let [log-normal-noise
+          (torch/exp
+           (torch/add
+            (torch/mul
+             (torch/randn_like
+              base-matrix
+              :device
+              pyutils/*torch-device*)
+             sigma)
+            mu))
+        log-normal-matrix (torch/mul base-matrix
+                                     log-normal-noise)]
+    log-normal-matrix))
 
-(defn field-matrix
-  [field-size]
-  ;; i->j, directed graph with geometry around each i
-  ;; (log-normal-field-matrix field-size 2 2)
-  ;;
-  ;; make it toroidal
-  ;;
-  (let [grid_size field-size
-        [x y] (torch/meshgrid
-               (torch/arange grid_size
-                             :device
-                             pyutils/*torch-device*)
-               (torch/arange grid_size
-                             :device
-                             pyutils/*torch-device*))
+(defn adjacency-matrix
+  [grid-size distance]
+  (let [[x y] (torch/meshgrid
+                (torch/arange grid-size
+                              :device
+                              pyutils/*torch-device*)
+                (torch/arange grid-size
+                              :device
+                              pyutils/*torch-device*))
         positions (torch/stack [(py.. x (flatten))
                                 (py.. y (flatten))]
                                :dim
@@ -123,30 +132,38 @@
         diff (torch/subtract (torch/unsqueeze positions 1)
                              (torch/unsqueeze positions 0))
         toroidal_diff
-        (torch/fmod (torch/add diff
-                               (torch/unsqueeze
-                                (torch/tensor
-                                 [grid_size]
-                                 :device
-                                 pyutils/*torch-device*)
-                                0))
-                    grid_size)
+          (torch/fmod (torch/add diff
+                                 (torch/unsqueeze
+                                   (torch/tensor
+                                     [grid-size]
+                                     :device
+                                     pyutils/*torch-device*)
+                                   0))
+                      grid-size)
         toroidal_diff_min (torch/min toroidal_diff
                                      (torch/subtract
-                                      grid_size
-                                      toroidal_diff))
+                                       grid-size
+                                       toroidal_diff))
         distances
-        (torch/sum (torch/abs toroidal_diff_min) :dim 2)
+          (torch/sum (torch/abs toroidal_diff_min) :dim 2)
         adjacency (torch/le distances 2)
-        adjacency (py.. adjacency
-                    (to :dtype
-                        torch/float
-                        ;; :device
-                        ;; pyutils/*torch-device*
-                        ))]
+        adjacency (py.. adjacency (to :dtype torch/float))]
     adjacency))
 
-
+(defn field-matrix
+  [field-size]
+  ;; i->j, directed graph with geometry around each i
+  ;;
+  ;; make it toroidal
+  ;;
+  ;; (pyutils/torch->jvm
+  ;;  (py/get-item
+  ;;   (distribute-log-normal (adjacency-matrix 5 1) 1
+  ;;   1)
+  ;;   [0]))
+  (distribute-log-normal (adjacency-matrix field-size 2)
+                         1
+                         1))
 
 
 ;; --------------
@@ -258,24 +275,15 @@
     (to :dtype torch/float)))
 
 
-
-
 (comment
-
   (py/set-item!
    (py.. (torch/zeros 30) (view -1 10))
    (builtins/slice 0 10)
    (py.. (torch/arange 9) (view 3 3)))
-
   (py/set-item!
    (py.. (torch/zeros 30) (view -1 10))
    (builtins/slice 0 10)
-   (py.. (torch/arange 9) (view 3 3)))
-
-
-
-
-  )
+   (py.. (torch/arange 9) (view 3 3))))
 
 
 
@@ -298,8 +306,6 @@
 ;;              1)]
 ;;         (py.. out (copy_ actv))))))
 
-
-
 (defn current-inputs
   [{:keys [weights activations excitability]}]
   (let [inputs (torch/mv weights activations)
@@ -307,25 +313,20 @@
     inputs))
 
 (defn default-update
-  ([weights activations excitability]
-   (default-update weights activations excitability 1.0))
-  ([weights activations excitability production-factor]
-   (py/with-manual-gil-stack-rc-context
-     (let [inputs (torch/mv weights activations)
-           inputs (torch/mul inputs excitability)
-           idxs (py.. (torch/topk
-                        inputs
-                        (min
-                         (long
-                          (* (or production-factor 1.0)
-                             (py.. (torch/sum
-                                    activations)
-                               item)))
-                         (py.. activations (size 0))))
-                      -indices)
-           _ (py.. activations (fill_ 0))
-           _ (py.. activations (index_fill_ 0 idxs 1))])
-     activations)))
+  [weights activations excitability]
+  (py/with-manual-gil-stack-rc-context
+    (let [inputs (torch/mv weights activations)
+          inputs (torch/mul inputs excitability)
+          idxs (py.. (torch/topk
+                       inputs
+                       (min (long (py.. (torch/sum
+                                          activations)
+                                    item))
+                            (py.. activations (size 0))))
+                 -indices)
+          _ (py.. activations (fill_ 0))
+          _ (py.. activations (index_fill_ 0 idxs 1))])
+    activations))
 
 (defn brownian-motion
   [weights]
@@ -348,37 +349,34 @@
              weights))
 
 (defn brownian-update
-  [{:as state :keys [weights activations excitability
-                     production-factor]}]
+  [{:as state :keys [weights activations excitability]}]
   (assoc state
-         :activations
-         (default-update
-          (brownian-motion weights)
-          activations
-          excitability
-          production-factor)))
+    :activations (default-update (brownian-motion weights)
+                                 activations
+                                 excitability)))
+
 
 
 ;; -------------
 
 (defn interact-inhibiting
   [field-producer field-inhibitor factor]
-  (let [;;
+  (let [ ;;
         ;;
         ;; update activations of field-producer so that
         ;; there are fewer,
         ;;
         activations (:activations field-producer)
         idxs-killed
-          (py.. (torch/topk
-                  (current-inputs field-inhibitor)
-                  (min (py.. activations (size 0))
-                       (long (* factor
-                                (py.. (torch/sum
-                                        (:activations
-                                          field-inhibitor))
-                                      (item))))))
-                -indices)
+        (py.. (torch/topk
+               (current-inputs field-inhibitor)
+               (min (py.. activations (size 0))
+                    (long (* factor
+                             (py.. (torch/sum
+                                    (:activations
+                                     field-inhibitor))
+                               (item))))))
+          -indices)
         _ (py.. activations (index_fill_ 0 idxs-killed 0))])
   field-producer)
 
@@ -555,13 +553,6 @@
 
 ;; ...
 ;; but the concept of excitability is much more simple
-
-;; (defn update-excitability
-;;   [exc selection factor]
-;;   (py/set-item!
-;;    exc
-;;    selection
-;;    (torch/mul (py/get-item exc selection) factor)))
 
 (defn normalize-excitability
   [excitability]
@@ -887,14 +878,9 @@
       distances)
 
 
-
-
-
-
-
-  (let [grid_size 30
-        [x y] (torch/meshgrid (torch/arange grid_size)
-                              (torch/arange grid_size))
+  (let [grid-size 30
+        [x y] (torch/meshgrid (torch/arange grid-size)
+                              (torch/arange grid-size))
         positions (torch/stack [(py.. x (flatten))
                                 (py.. y (flatten))]
                                :dim
@@ -904,21 +890,14 @@
         toroidal_diff (torch/fmod (torch/add diff
                                              (torch/unsqueeze
                                               (torch/tensor
-                                               [grid_size])
+                                               [grid-size])
                                               0))
-                                  grid_size)
+                                  grid-size)
         toroidal_diff_min
         (torch/min toroidal_diff
-                   (torch/subtract grid_size toroidal_diff))
+                   (torch/subtract grid-size toroidal_diff))
         distances
         (torch/sum (torch/abs toroidal_diff_min) :dim 2)
         adjacency (torch/le distances 2)
         adjacency (py.. adjacency (to :dtype torch/float))]
-    adjacency)
-
-
-
-
-
-
-  )
+    adjacency))
