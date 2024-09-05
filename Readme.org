@@ -15,13 +15,12 @@ Since I am a visual person and I want to /feel/ what I program, I build this stu
 
 This is a kind of a-life excerice. And a hammock driven delopment thing.
 
-* Blerp
+* Brownian local explorer resonator particle - Blerp
 
 When I close my eyes I am not blind. There is a shimmering there. Vaguely colorful blobs swirling. Perhaps manifesting
 into the hints of edges, then ebbing and flowing, washed away by some force of nature which they are not able to whithstand.
 Perhaps no more than the ideas of an idea of an object.
 
-Brownian local explorer resonator particle.
 
 - =particle-field= is a directed graph (on a 2d grid).
 - Each node is connected to itself and it's immediate neighbours (local).
