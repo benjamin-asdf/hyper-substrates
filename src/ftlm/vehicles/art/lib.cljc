@@ -77,8 +77,29 @@
 (defn ->connection-line [entity-a entity-b]
   (merge (->entity :line) (->connection-line-1 entity-a entity-b)))
 
+;; returns a fn that returns the args to q/bezier
+(defn ->bezier
+  [rel-control-point-1 rel-control-point-2]
+  (fn [[x y] [x1 y1 :as end-pos]]
+    (let [midpoint (mapv #(/ (+ %1 %2) 2) [x y] end-pos)
+          control-point-1 (v+ rel-control-point-1 midpoint)
+          control-point-2 (v+ rel-control-point-2 midpoint)]
+      [x y (first control-point-1) (second control-point-1)
+       (first control-point-2) (second control-point-2) x1
+       y1])))
+
+(defn rand-bezier
+  [distr]
+  (->bezier [(normal-distr 0 distr)
+             (normal-distr 0 distr)]
+            [(normal-distr 0 distr)
+             (normal-distr 0 distr)]))
+
 (defn ->connection-bezier-line [entity-a entity-b]
-  (merge (->entity :bezier-line) (->connection-line-1 entity-a entity-b)))
+  (merge
+   (->entity :bezier-line {:bezier-line (rand-bezier 5)})
+   (->connection-line-1 entity-a entity-b)
+   ))
 
 (def connection->infected :entity-a)
 (def connection->non-infected :entity-b)
@@ -232,23 +253,6 @@
 
 (defmethod draw-entity :default [_])
 
-;; returns a fn that returns the args to q/bezier
-(defn ->bezier
-  [rel-control-point-1 rel-control-point-2]
-  (fn [[x y] [x1 y1 :as end-pos]]
-    (let [midpoint (mapv #(/ (+ %1 %2) 2) [x y] end-pos)
-          control-point-1 (v+ rel-control-point-1 midpoint)
-          control-point-2 (v+ rel-control-point-2 midpoint)]
-      [x y (first control-point-1) (second control-point-1)
-       (first control-point-2) (second control-point-2) x1
-       y1])))
-
-(defn rand-bezier
-  [distr]
-  (->bezier [(normal-distr 0 distr)
-             (normal-distr 0 distr)]
-            [(normal-distr 0 distr)
-             (normal-distr 0 distr)]))
 
 (defmethod draw-entity :line
   [{:keys [transform end-pos color] :as e}]
@@ -269,13 +273,10 @@
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
     (q/begin-shape)
-    (q/with-stroke
-      (->hsb color)
-      (apply q/bezier
-             (bezier-line [x y] end-pos)))
+    (q/with-stroke (->hsb color)
+                   (apply q/bezier
+                     (bezier-line [x y] end-pos)))
     (q/end-shape)))
-
-
 
 (defmethod draw-entity :triangle
   [{:keys [transform color]}]
@@ -321,7 +322,7 @@
         {:keys [width height scale rotation]} transform]
     (q/with-translation [x y]
       (q/rotate rotation)
-      (q/rect 0 0 (* width scale) (* height scale) corner-r))))
+      (q/rect 0 0 (* width scale) (* height scale) (or corner-r 0)))))
 
 #?(:cljs
    (defn window-dimensions []
@@ -368,10 +369,10 @@
                     (= modality :smell) 0.8
                     :else 1)]
     (merge (->entity :circle)
-           {:color (q/color 40 96 255 255)
+           {:activation-shine true
+            :color (q/color 40 96 255 255)
             :particle? true
             :sensor? true
-            :activation-shine true
             :transform (->transform [0 0] 20 20 scale)}
            opts)))
 
@@ -397,7 +398,10 @@
   ([] (->cap-activation 0))
   ([at]
    (fn [e _]
-     (update e :activation #(max at %)))))
+     (update e :activation
+             (fnil #(max at %) 0)))))
+
+;; (update {} :foo (fnil #(max 10 %) 0))
 
 (defn normalize-value-1
   [min max value]
@@ -412,8 +416,11 @@
         m
         (or
          (:anchor-position ent)
-         (anchor->trans-matrix (:anchor ent)))]
+         (anchor->trans-matrix (:anchor ent))
+         [1 1])]
     (v* m [(/ width 2) (/ height 2)])))
+
+;; (relative-position parent ent)
 
 (defn rotate-point [rotation [x y]]
   [(+ (* x (Math/cos rotation)) (* -1 y (Math/sin rotation)))
@@ -437,54 +444,67 @@
 
 (defn track-components
   [state]
-  ;; (def state state)
+  (def state state)
   ;; (filter :components (entities state))
-  (let [parent-by-id (into {}
-                           (comp
-                            (remove :hidden?)
-                            (filter :components)
-                            (mapcat (fn [ent]
-                                      (map
-                                       (juxt identity (constantly ent))
-                                       (:components ent)))))
-                           (entities state))]
+  (let [parent-by-id
+          (into {}
+                (comp (remove :hidden?)
+                      (filter :components)
+                      (mapcat (fn [ent]
+                                (map (juxt identity
+                                           (constantly ent))
+                                  (:components ent)))))
+                (entities state))]
     (->
-     state
-     (update-ents
-      (fn [{:as ent :keys [id]}]
-        (if-let [parent (parent-by-id id)]
-          (let [relative-position (relative-position parent ent)
-                parent-rotation (-> parent
-                                    :transform
-                                    :rotation
-                                    )
-                parent-scale (-> parent
-                                 :transform
-                                 :scale
-                                 )
-                scale (or
-                       (-> ent :transform :absolute-scale)
-                       (* (-> ent :transform :scale) parent-scale))]
-            (-> ent
-                (assoc-in [:transform :pos]
-                          [(+ (first (v* [parent-scale parent-scale]
-                                         (rotate-point parent-rotation
-                                                       relative-position)))
-                              (first (-> parent
+      state
+      (update-ents
+        (fn [{:as ent :keys [id]}]
+          (if (:hidden? ent)
+            ent
+            (if-let [parent (parent-by-id id)]
+              (let [relative-position
+                      (relative-position parent ent)
+                    parent-rotation (or (-> parent
+                                            :transform
+                                            :rotation)
+                                        1)
+                    parent-scale (or (-> parent
                                          :transform
-                                         :pos)))
-                           (+ (second (v* [parent-scale parent-scale]
-                                          (rotate-point parent-rotation
-                                                        relative-position)))
-                              (second (-> parent
-                                          :transform
-                                          :pos)))])
-                (assoc-in [:transform :rotation]
-                          (-> parent
-                              :transform
-                              :rotation))
-                (assoc-in [:transform :scale] scale)))
-          ent))))))
+                                         :scale)
+                                     1)
+                    scale (or (-> ent
+                                  :transform
+                                  :absolute-scale)
+                              (* (or (-> ent
+                                         :transform
+                                         :scale)
+                                     1)
+                                 parent-scale))]
+                (-> ent
+                    (assoc-in
+                      [:transform :pos]
+                      [(+ (first (v* [parent-scale
+                                      parent-scale]
+                                     (rotate-point
+                                       parent-rotation
+                                       relative-position)))
+                          (first (-> parent
+                                     :transform
+                                     :pos)))
+                       (+ (second (v* [parent-scale
+                                       parent-scale]
+                                      (rotate-point
+                                        parent-rotation
+                                        relative-position)))
+                          (second (-> parent
+                                      :transform
+                                      :pos)))])
+                    (assoc-in [:transform :rotation]
+                              (-> parent
+                                  :transform
+                                  :rotation))
+                    (assoc-in [:transform :scale] scale)))
+              ent)))))))
 
 (defn append-ents
   [state ents]
@@ -508,13 +528,15 @@
                           entities))]
     (q/stroke-weight (or (:stroke-weight entity) 1))
     (draw-color color)
-    (let [drw (fn []
-                (draw-entity entity)
-                (doall (map (fn [op] (op entity))
-                            (vals draw-functions))))]
-      (cond (:stroke entity)
-            (q/with-stroke (->hsb (:stroke entity)) (drw))
-            :else (drw)))))
+    (let
+        [drw (fn []
+               (draw-entity entity)
+               ;; (doall (map (fn [op] (op entity))
+               ;;             (vals draw-functions)))
+               )]
+        (cond (:stroke entity)
+              (q/with-stroke (->hsb (:stroke entity)) (drw))
+              :else (drw)))))
 
 (defn draw-entities
   [state]
@@ -522,7 +544,7 @@
 
 (defn effector->angular-acceleration
   [{:keys [anchor activation rotational-power]}]
-  (* rotational-power activation (anchor->rot-influence anchor)))
+  (* (or rotational-power 0) (or activation 0) (anchor->rot-influence anchor)))
 
 (defn update-body
   [entity state]
@@ -534,11 +556,13 @@
                       (filter :motor?))
                      (:components entity))]
       (-> entity
-          (update :acceleration + (reduce + (map :activation effectors)))
+          (update :acceleration
+                  (fnil + 0)
+                  (reduce + (map #(:activation % 0) effectors)))
           (assoc :angular-acceleration (transduce
-                                         (map effector->angular-acceleration)
-                                         +
-                                         effectors))))))
+                                        (map effector->angular-acceleration)
+                                        +
+                                        effectors))))))
 
 (defn update-rotation
   [entity]
@@ -559,35 +583,40 @@
 
 (defn update-position
   [{:as entity :keys [velocity acceleration]}]
-  (let [velocity (+ velocity (* *dt* acceleration))
-        rotation (-> entity
-                     :transform
-                     :rotation)
-        x (* *dt* velocity (Math/sin rotation))
-        y (* *dt* velocity (- (Math/cos rotation)))]
-    (-> entity
-        (assoc :velocity velocity)
-        (update-in [:transform :pos]
-                   (fn [position]
-                     (vector (+ (first position) x)
-                             (+ (second position) y)))))))
+  (if-not (-> entity :transform :pos)
+    entity
+    (let [velocity (or velocity 0)
+          velocity (+ velocity (* *dt* acceleration))
+          rotation (-> entity
+                       :transform
+                       :rotation)
+          x (* *dt* velocity (Math/sin rotation))
+          y (* *dt* velocity (- (Math/cos rotation)))]
+      (-> entity
+          (assoc :velocity velocity)
+          (update-in [:transform :pos]
+                     (fn [position]
+                       (vector (+ (first position) x)
+                               (+ (second position) y))))))))
 
 (defn activation-shine
-  [{:as entity :keys [activation shine activation-shine-colors activation-shine activation-shine-speed]}]
+  [{:as entity
+    :keys [activation shine activation-shine-colors
+           activation-shine activation-shine-speed]}]
   (if (and activation activation-shine)
-    (let [shine (+ shine (* *dt* activation (or activation-shine-speed 1)))]
+    (let [shine (or shine 0)
+          shine (+ shine
+                   (* *dt*
+                      activation
+                      (or activation-shine-speed 1)))]
       (assoc entity
-             :shine shine
-             :color (q/lerp-color
-                     (->hsb
-                      (or
-                       (:low activation-shine-colors)
-                       (q/color 40 96 255 255)))
-                     (->hsb
-                      (or
-                       (:high activation-shine-colors)
-                       (q/color 100 255 255)))
-                     (normalize-value-1 0 1 (Math/sin shine)))))
+        :shine shine
+        :color (q/lerp-color
+                 (->hsb (or (:low activation-shine-colors)
+                            (q/color 40 96 255 255)))
+                 (->hsb (or (:high activation-shine-colors)
+                            (q/color 100 255 255)))
+                 (normalize-value-1 0 1 (Math/sin shine)))))
     entity))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
@@ -720,10 +749,16 @@
 ;; sensors have 180 degree of seeing.
 ;; 1 directly in front 0 to the side, 0 when behind
 (defn calculate-adjustment [angle looking-direction]
-  (Math/max 0 (Math/cos (+ (* looking-direction q/TWO-PI) angle))))
+  (def angle angle)
+  (def looking-direction looking-direction)
+  (max 0 (Math/cos (+ (* looking-direction q/TWO-PI) angle))))
 
 (defn ray-intensity
   [sensor-pos sensor-rotation sensor-looking-direction env]
+  (def sensor-pos sensor-pos)
+  (def sensor-rotation sensor-rotation)
+  (def sensor-looking-direction sensor-looking-direction)
+  (def env env)
   (transduce
    (map (fn [light]
           (let [distance (distance sensor-pos (position light))
@@ -740,12 +775,13 @@
 
 (defmethod update-sensor :rays
   [sensor env]
-  (let [ray-intensity
-        (ray-intensity
-         (position sensor)
-         (rotation sensor)
-         (-> sensor :anchor anchor->sensor-direction)
-         env)]
+  (let [ray-intensity (ray-intensity
+                       (position sensor)
+                       (rotation sensor)
+                       (-> sensor
+                           :anchor
+                           anchor->sensor-direction)
+                       env)]
     (assoc sensor :activation (min ray-intensity 14))))
 
 
@@ -832,20 +868,22 @@
 (defn ->ray-source
   [{:as opts
     :keys [pos intensity scale shinyness]}]
-  [(merge (->entity :circle)
-          {:color {:h 67 :s 7 :v 95}
-           :draggable? true
-           :particle? true
-           :ray-source? true
-           :makes-circular-shines? true
-           :shinyness
-           (if-not
-               (nil? shinyness)
-             shinyness
-               intensity)
-           :on-update [(->circular-shine 1.5 (/ intensity 3))]
-           :transform (assoc (->transform pos 40 40 1) :scale (or scale 1))}
-          opts)])
+  [(merge
+    (->entity :circle)
+    {:color {:h 67 :s 7 :v 95}
+     :draggable? true
+     :particle? true
+     :ray-source? true
+     :makes-circular-shines? false
+     ;; true
+     :shinyness
+     (if-not
+         (nil? shinyness)
+         shinyness
+         intensity)
+     ;; :on-update [(->circular-shine 1.5 (/ intensity 3))]
+     :transform (assoc (->transform pos 40 40 1) :scale (or scale 1))}
+    opts)])
 
 (defn ->body
   [{:keys [pos scale rot] :as opts}]
@@ -890,10 +928,10 @@
   [entity kinetic-energy]
   (-> entity
       (update :acceleration
-              +
+              (fnil + 0)
               (* 30 (q/random-gaussian) kinetic-energy))
       (update :angular-acceleration
-              +
+              (fnil + 0)
               (* 0.3 (q/random-gaussian) kinetic-energy))))
 
 (defn calculate-center-point [entities]
@@ -907,28 +945,31 @@
   [e]
   (if-not (:particle? e)
     e
-    (kinetic-energy-motion
-     e
-     (or
-      (:kinetic-energy e)
-      (:brownian-factor (controls))))))
+    (kinetic-energy-motion e
+                           (or
+                            (:kinetic-energy e)
+                            (:brownian-factor (controls))
+                            0))))
 
 (defn ->explosion
-
-
   [{:keys [n size pos color spread]}]
-  (into []
-        (map (fn []
-               (let [spawn-pos [(normal-distr (first pos) spread)
-                                (normal-distr (second pos) spread)]]
-                 (-> (merge (->entity :circle)
-                            {:acceleration (normal-distr 1000 200)
-                             :color color
-                             :lifetime (normal-distr 1 0.5)
-                             :transform
-                               (assoc (->transform spawn-pos size size 1)
-                                      :rotation (angle-between spawn-pos pos))})))))
-        (range n)))
+  (into
+    []
+    (map (fn [_]
+           (let [spawn-pos
+                   [(normal-distr (first pos) spread)
+                    (normal-distr (second pos) spread)]]
+             (-> (merge
+                   (->entity :circle)
+                   {:acceleration (normal-distr 1000 200)
+                    :color color
+                    :lifetime (normal-distr 1 0.5)
+                    :transform
+                      (assoc
+                        (->transform spawn-pos size size 1)
+                        :rotation (angle-between spawn-pos
+                                                 pos))})))))
+    (range n)))
 
 (defn ->wobble-anim [duration magnitute]
   (let [s (atom {:time-since 0})]
@@ -962,10 +1003,14 @@
 
 (defn ray-source-collision-burst
   [state]
-  (let [sources (sequence (comp (filter :ray-source?)
-                                (filter (comp #(< 1000 %)
-                                              #(- (q/millis) %)
-                                              (fnil :last-exploded 0))))
+  (let [sources (sequence (comp
+                           (filter :ray-source?)
+                           (filter
+                            (comp
+                             #(< 1000 %)
+                             #(- (q/millis) %)
+                             (fnil identity 0)
+                             :last-exploded)))
                           (entities state))
         bodies (filter :body? (entities state))
         explode-them
@@ -1042,7 +1087,10 @@
 
 (defn ->call-callbacks
   [k]
+  (def k k)
   (fn [state e]
+    ;; (def state state)
+    ;; (def e e)
     (let [s state
           {:as e :keys [id]} e
           cb-map (k e)]
@@ -1283,7 +1331,7 @@
    (<= 0 y (q/height))))
 
 (defn mouse-pressed
-  [state]
+  [state event]
   (if-not (inside-canvas? (q/mouse-x) (q/mouse-y))
     state
     (let [draggable-or-clickable (find-closest-draggable
@@ -1318,7 +1366,9 @@
         state))))
 
 (defn mouse-released
-  [{:as state :keys [selection]}]
+  [{:as state :keys [selection]} _]
+  (def state state)
+  (def selection selection)
   (if-not selection
     state
     (let [{:as selection :keys [dragged?]}
@@ -1326,7 +1376,8 @@
       (if-not selection
         state
         (cond-> state
-          dragged? ((->call-callbacks :on-drag-end-map) state selection)
+          dragged?
+          ((->call-callbacks :on-drag-end-map) selection)
           :regardless (update-in
                         [:eid->entity (:id selection)]
                         (fn [e]
@@ -1336,12 +1387,22 @@
   [state id rotation]
   (update-in state [:eid->entity id :transform :rotation] + rotation))
 
-(defn mouse-wheel [state rotation]
-  (if-let [ent ((entities-by-id state) (-> state :selection :id))]
-    (do
-      (rotate-entity state (:id ent) (/ rotation 50 2.5))
-      ;; (update-in state [:eid->entity (:id ent) :angular-acceleration] + (/ rotation 60 2.5))
-      )
+(defn mouse-wheel
+  [state rotation]
+  (if-let [ent ((entities-by-id state)
+                 (-> state
+                     :selection
+                     :id))]
+    (do (rotate-entity state
+                       (:id ent)
+                       #?(:cljs (/ rotation 50 2.5)
+                          :clj (* rotation 100)))
+        ;; (update-in state
+        ;;            [:eid->entity (:id ent)
+        ;;            :angular-acceleration]
+        ;;            +
+        ;;            (* rotation 100))
+    )
     state))
 
 (def actuator? :actuator?)
@@ -1428,3 +1489,10 @@
 (defmulti setup-version (comp keyword :v :controls))
 
 (defonce the-state (atom {:event-q (atom [])}))
+
+
+(defn from-left [amount]
+  (- (q/width) amount))
+
+(defn from-bottom [amount]
+  (- (q/height) amount))

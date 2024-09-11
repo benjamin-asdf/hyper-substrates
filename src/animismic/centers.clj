@@ -391,57 +391,58 @@
   (->
     state
     (lib/append-ents
-      [(world-grid)
-       ;; (glooby-view)
-       (-> (blerp-retina
-             {:color (:green-yellow defs/color-map)
-              :grid-width grid-width
-              :particle-field-opts {:attenuation-factor 0
-                                    :decay-factor 0.01
-                                    :vacuum-babble-factor
-                                      (/ 1 1000)}
-              :particle-id :green-yellow
-              :pos [50 50]
-              :spacing 20})
-           (lib/live [:produced
-                      (fn [e s _]
-                        (update e
-                                :particle-field
-                                p/production
-                                (:particle-field e)
-                                (fn [n] (+ 5 n))))])
-           (lib/live [:destroyed
-                      (fn [e s _]
-                        (update e
-                                :particle-field
-                                p/interact-inhibiting
-                                (:heliotrope (field-map s))
-                                2))]))
-       (->
-         (blerp-retina {:color (:heliotrope defs/color-map)
-                        :grid-width grid-width
-                        :particle-field-opts
-                          {:attenuation-factor 1.5
-                           :decay-factor 0.1
-                           :vacuum-babble-factor (/ 1 1000)}
-                        :particle-id :heliotrope
-                        :pos [50 50]
-                        :spacing 20})
-         (lib/live [:produced
-                    (fn [e s _]
-                      (update e
-                              :particle-field
-                              p/production
-                              (:green-yellow (field-map s))
-                              0.2))]))
-       ;; (blerp-retina {:color (:green-yellow
-       ;; defs/color-map)
-       ;;                :grid-width grid-width
-       ;;                :interactions [[:attracted
-       ;;                :orange]]
-       ;;                :particle-id :green-yellow
-       ;;                :pos [50 50]
-       ;;                :spacing 20})
+     [
+      ;; (world-grid)
+      ;; (glooby-view)
+      (-> (blerp-retina
+           {:color (:green-yellow defs/color-map)
+            :grid-width grid-width
+            :particle-field-opts {:attenuation-factor 0
+                                  :decay-factor 0.01
+                                  :vacuum-babble-factor
+                                  (/ 1 1000)}
+            :particle-id :green-yellow
+            :pos [50 50]
+            :spacing 20})
+          (lib/live [:produced
+                     (fn [e s _]
+                       (update e
+                               :particle-field
+                               p/production
+                               (:particle-field e)
+                               (fn [n] (+ 5 n))))])
+          (lib/live [:destroyed
+                     (fn [e s _]
+                       (update e
+                               :particle-field
+                               p/interact-inhibiting
+                               (:heliotrope (field-map s))
+                               2))]))
+      (->
+       (blerp-retina {:color (:heliotrope defs/color-map)
+                      :grid-width grid-width
+                      :particle-field-opts
+                      {:attenuation-factor 1.5
+                       :decay-factor 0.1
+                       :vacuum-babble-factor (/ 1 1000)}
+                      :particle-id :heliotrope
+                      :pos [50 50]
+                      :spacing 20})
+       (lib/live [:produced
+                  (fn [e s _]
+                    (update e
+                            :particle-field
+                            p/production
+                            (:green-yellow (field-map s))
+                            0.2))]))
+      ;; (blerp-retina {:color (:green-yellow
+      ;; defs/color-map)
+      ;;                :grid-width grid-width
+      ;;                :interactions [[:attracted
+      ;;                :orange]]
+      ;;                :particle-id :green-yellow
+      ;;                :pos [50 50]
+      ;;                :spacing 20})
       ])))
 
 (sketch

@@ -321,9 +321,9 @@
                        inputs
                        (min (long (py.. (torch/sum
                                           activations)
-                                    item))
+                                        item))
                             (py.. activations (size 0))))
-                 -indices)
+                     -indices)
           _ (py.. activations (fill_ 0))
           _ (py.. activations (index_fill_ 0 idxs 1))])
     activations))
@@ -353,28 +353,26 @@
                                  activations
                                  excitability)))
 
-
-
 ;; -------------
 
 (defn interact-inhibiting
   [field-producer field-inhibitor factor]
-  (let [;;
+  (let [ ;;
         ;;
         ;; update activations of field-producer so that
         ;; there are fewer,
         ;;
         activations (:activations field-producer)
         idxs-killed
-          (py.. (torch/topk
-                  (current-inputs field-inhibitor)
-                  (min (py.. activations (size 0))
-                       (long (* factor
-                                (py.. (torch/sum
-                                        (:activations
-                                          field-inhibitor))
-                                      (item))))))
-                -indices)
+        (py.. (torch/topk
+               (current-inputs field-inhibitor)
+               (min (py.. activations (size 0))
+                    (long (* factor
+                             (py.. (torch/sum
+                                    (:activations
+                                     field-inhibitor))
+                               (item))))))
+          -indices)
         _ (py.. activations (index_fill_ 0 idxs-killed 0))])
   field-producer)
 
@@ -507,6 +505,7 @@
   ;;  field
   ;;  spec)
   )
+
 
 
 
