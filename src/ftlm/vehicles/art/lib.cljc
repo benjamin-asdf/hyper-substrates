@@ -377,14 +377,18 @@
            opts)))
 
 (defn ->motor
-  [opts]
-  (merge (->entity :rect)
-         {:color (q/color 40 96 255 255)
-          :motor? true
-          :actuator? true
-          :activation-shine true
-          :transform (->transform [0 0] 20 35 1)}
-         opts))
+  [{:as opts :keys [scale width height]}]
+  (let [scale (or scale 1)
+        width (or width 20)
+        height (or height 35)]
+    (merge (->entity :rect)
+           {:activation-shine true
+            :actuator? true
+            :color (q/color 40 96 255 255)
+            :motor? true
+            :transform
+              (->transform [0 0] width height scale)}
+           opts)))
 
 (defn ->neuron
   [opts]
@@ -728,9 +732,10 @@
 (defn normalize-angle [angle]
   (mod (+ (mod angle q/TWO-PI) q/TWO-PI) q/TWO-PI))
 
-
 (defn orient-towards
   [entity target]
+  ;; (def entity entity)
+  ;; (def target target)
   (let [desired-angle (angle-between (position entity) target)]
     (assoc-in entity [:transform :rotation] desired-angle)))
 
@@ -886,12 +891,14 @@
     opts)])
 
 (defn ->body
-  [{:keys [pos scale rot] :as opts}]
-  (merge
-   (->entity :rect)
-   {:body? true
-    :transform (assoc (->transform pos 50 80 scale) :rotation rot)}
-   opts))
+  [{:as opts :keys [pos scale rot]}]
+  (merge (->entity :rect)
+         {:body? true
+          :transform
+          (assoc
+           (->transform pos 50 80 scale)
+           :rotation rot)}
+         opts))
 
 
 ;; or clickable
