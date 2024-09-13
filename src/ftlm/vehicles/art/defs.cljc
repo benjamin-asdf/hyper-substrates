@@ -6,6 +6,7 @@
 (def color-map
   {:amethyst-smoke {:h 272 :s 20 :v 75}
    :anakiwa {:h 206 :s 44 :v 100}
+   :black {:h 0 :s 0 :v 0}
    :cyan {:h 180 :s 100 :v 100}
    :dark-blue {:h 224 :s 255 :v 41}
    :fruit-salad {:h 133 :s 54 :v 61}
@@ -24,6 +25,7 @@
    :red {:h 0 :s 255 :v 100}
    :sweet-pink {:h 356 :s 39 :v 100}
    :very-blue {:h 210 :s 255 :v 100}
+   :white {:h 360 :s 100 :v 100}
    :woodsmoke {:h 240 :s 26 :v 9}
    :yellow {:h 60 :s 100 :v 100}})
 

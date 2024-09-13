@@ -1,6 +1,8 @@
 (ns ftlm.vehicles.art.lib
-  (:require [quil.core :as q :include-macros true]
-            [ftlm.vehicles.art.util :as u])
+  (:require
+   [quil.core :as q :include-macros true]
+   [ftlm.vehicles.art.defs :as defs]
+   [ftlm.vehicles.art.util :as u])
   #?(:cljs (:require-macros [ftlm.vehicles.art.util :as
                              u])))
 
@@ -448,67 +450,68 @@
 
 (defn track-components
   [state]
-  (def state state)
-  ;; (filter :components (entities state))
   (let [parent-by-id
           (into {}
-                (comp (remove :hidden?)
-                      (filter :components)
-                      (mapcat (fn [ent]
-                                (map (juxt identity
-                                           (constantly ent))
-                                  (:components ent)))))
+                (comp
+                 ;; (remove :hidden?)
+                 (filter :components)
+                 (mapcat (fn [ent]
+                           (map (juxt identity
+                                      (constantly ent))
+                                (:components ent)))))
                 (entities state))]
     (->
       state
       (update-ents
         (fn [{:as ent :keys [id]}]
-          (if (:hidden? ent)
-            ent
-            (if-let [parent (parent-by-id id)]
-              (let [relative-position
-                      (relative-position parent ent)
-                    parent-rotation (or (-> parent
-                                            :transform
-                                            :rotation)
-                                        1)
-                    parent-scale (or (-> parent
-                                         :transform
-                                         :scale)
-                                     1)
-                    scale (or (-> ent
+          (if-let [parent (parent-by-id id)]
+            (let [relative-position
+                  (relative-position parent ent)
+                  parent-rotation
+                  (or (-> parent
+                          :transform
+                          :rotation)
+                      1)
+                  parent-scale
+                  (or (-> parent
+                          :transform
+                          :scale)
+                      1)
+                  scale
+                  (or
+                   (-> ent
+                       :transform
+                       :absolute-scale)
+                   (* (or (-> ent
+                              :transform
+                              :scale)
+                          1)
+                      parent-scale))]
+              (-> ent
+                  (assoc-in
+                   [:transform :pos]
+                   [(+ (first (v* [parent-scale
+                                   parent-scale]
+                                  (rotate-point
+                                   parent-rotation
+                                   relative-position)))
+                       (first (-> parent
                                   :transform
-                                  :absolute-scale)
-                              (* (or (-> ent
-                                         :transform
-                                         :scale)
-                                     1)
-                                 parent-scale))]
-                (-> ent
-                    (assoc-in
-                      [:transform :pos]
-                      [(+ (first (v* [parent-scale
-                                      parent-scale]
-                                     (rotate-point
-                                       parent-rotation
-                                       relative-position)))
-                          (first (-> parent
-                                     :transform
-                                     :pos)))
-                       (+ (second (v* [parent-scale
-                                       parent-scale]
-                                      (rotate-point
-                                        parent-rotation
-                                        relative-position)))
-                          (second (-> parent
-                                      :transform
-                                      :pos)))])
-                    (assoc-in [:transform :rotation]
-                              (-> parent
-                                  :transform
-                                  :rotation))
-                    (assoc-in [:transform :scale] scale)))
-              ent)))))))
+                                  :pos)))
+                    (+ (second (v* [parent-scale
+                                    parent-scale]
+                                   (rotate-point
+                                    parent-rotation
+                                    relative-position)))
+                       (second (-> parent
+                                   :transform
+                                   :pos)))])
+                  (assoc-in [:transform :rotation]
+                            (-> parent
+                                :transform
+                                :rotation))
+                  (assoc-in [:transform :scale] scale)))
+            ent))))))
 
 (defn append-ents
   [state ents]
@@ -789,7 +792,6 @@
                        env)]
     (assoc sensor :activation (min ray-intensity 14))))
 
-
 (defn ->odor-source
   [{:keys [intensity decay-rate pos] :as opts}]
   (merge
@@ -837,38 +839,48 @@
                 :temperature-bubbles))]
     (assoc sensor :activation (min new-activation 14))))
 
+
+
 (defn ->circular-shine-1
   [pos color speed]
   (assoc (->entity :circle)
-         :transform (assoc
-                     (->transform pos 20 20 0.5)
-                     :absolute-scale 0.5)
+         :transform (assoc (->transform pos 20 20 1)
+                           :absolute-scale 1)
          :lifetime 1
-         :color color
+         :color (defs/color-map
+                  (rand-nth [:hit-pink :red :heliotrope
+                             :green-yellow :horizon :magenta
+                             :purple :sweet-pink :cyan]))
          :z-index -4
-         :on-update [(->grow speed) (->clamp-scale 20)]))
+         :on-update [(->grow speed)
+                     ;; (->clamp-scale 20)
+                     ]))
 
 (defn ->circular-shine
-  [freq speed]
-  (let [s (atom {:next freq})]
-    (fn [entity state]
-      (swap! s update :next - *dt*)
-      (when (<= (:next @s) 0)
-        (swap! s assoc :next (normal-distr freq freq))
-        (let [c (->hsb (:color entity))
-              se (->circular-shine-1
-                  (position entity)
-                  (q/color
-                   (q/hue c)
-                   (q/saturation c)
-                   (q/brightness c)
-                   100)
-                  speed)]
-          {:updated-state (-> state
-                              (update-in [:eid->entity (:id entity) :components]
-                                         (fnil conj [])
-                                         (:id se))
-                              (append-ents [se]))})))))
+  ([freq speed] (->circular-shine freq speed 3))
+  ([freq speed lifetime]
+   (let [s (atom {:next freq})
+         freq (/ freq 3)]
+     (fn [entity state]
+       (swap! s update :next - *dt*)
+       (when (<= (:next @s) 0)
+         (swap! s assoc :next (normal-distr freq freq))
+         (let [c (->hsb (:color entity))
+               se (assoc (->circular-shine-1
+                          (position entity)
+                          (q/color (q/hue c)
+                                   (q/saturation c)
+                                   (q/brightness c)
+                                   100)
+                          speed)
+                         :lifetime (normal-distr lifetime (Math/sqrt lifetime)))]
+           {:updated-state (-> state
+                               (update-in [:eid->entity
+                                           (:id entity)
+                                           :components]
+                                          (fnil conj [])
+                                          (:id se))
+                               (append-ents [se]))}))))))
 
 (defn ->ray-source
   [{:as opts
@@ -886,7 +898,7 @@
          (nil? shinyness)
          shinyness
          intensity)
-     ;; :on-update [(->circular-shine 1.5 (/ intensity 3))]
+     :on-update [(->circular-shine 1.5 (/ intensity 3))]
      :transform (assoc (->transform pos 40 40 1) :scale (or scale 1))}
     opts)])
 

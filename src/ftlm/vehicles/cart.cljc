@@ -197,6 +197,8 @@
 
 (defmulti build-entity first)
 
+(defmethod build-entity :cart/entity [[_ {:keys [f]}]] (f))
+
 (defmethod build-entity :default [[kind opts]] ((builders kind) opts))
 
 (defn ref? [v] (and (sequential? v) (= (first v) :ref)))
