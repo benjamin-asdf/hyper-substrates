@@ -455,25 +455,26 @@
           50
           (fn []
             (cart/->cart
-              {:body {:color defs/white
+             {:body {:color (:navajo-white defs/color-map)
                       :scale 1
-                      :stroke-weight 0
-                      :transform
-                      (assoc
-                       (lib/->transform
-                        (lib/rand-on-canvas-gauss
-                         0.3)
-                        30
-                        40
-                        1)
-                       :rotation (* q/TWO-PI (rand)))}
+                      ;; :stroke-weight 0
+                      ;; :transform
+                      ;; (assoc
+                      ;;  (lib/->transform
+                      ;;   (lib/rand-on-canvas-gauss
+                      ;;    0.3)
+                      ;;   30
+                      ;;   40
+                      ;;   1)
+                      ;;  :rotation (* q/TWO-PI (rand)))
+                      }
                :components
                  [;;
                   [:cart/motor :ma
                    {:anchor :bottom-right
                     :corner-r 5
                     :height 30
-                    :hidden? true
+                    ;; :hidden? true
                     :on-update [(lib/->cap-activation)]
                     :rotational-power 0.02
                     :width 10}]
@@ -481,7 +482,7 @@
                    {:anchor :bottom-left
                     :corner-r 5
                     :height 30
-                    :hidden? true
+                    ;; :hidden? true
                     :on-update [(lib/->cap-activation)]
                     :rotational-power 0.02
                     :width 10}]
@@ -572,15 +573,14 @@
                                      (fnil + 0)
                                      20)
                              (assoc :kinetic-energy
-                                      0))))))]))))))))
+                                    0))))))]))))))))
 
 (sketch
  {:background-color 0
-  :time-speed 2
+  :time-speed 3
   :v :getting-around-2
   :height nil
   :width nil})
-
 
 
 ;;

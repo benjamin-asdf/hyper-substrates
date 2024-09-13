@@ -447,12 +447,15 @@
                     #(lib/->ray-source
                        {:intensity 30
                         :pos (lib/rand-on-canvas-gauss 0.2)
+                        :particle? true
+                        :kinetic-energy 1.5
                         :scale 1
-                        :shinyness 20}))))
+                        :color defs/white
+                        :shinyness nil}))))
     (lib/append-ents
       (mapcat identity
         (repeatedly
-          50
+          60
           (fn []
             (cart/->cart
               {:body {:color (:navajo-white defs/color-map)
