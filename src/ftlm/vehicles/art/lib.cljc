@@ -1,12 +1,16 @@
 (ns ftlm.vehicles.art.lib
   (:require
    [quil.core :as q :include-macros true]
+   [ftlm.vehicles.art.collider :as collide]
    [ftlm.vehicles.art.defs :as defs]
    [ftlm.vehicles.art.util :as u])
   #?(:cljs (:require-macros [ftlm.vehicles.art.util :as
                              u])))
 
 (def ^:dynamic *dt* nil)
+
+(defonce the-state (atom {:event-q (atom [])}))
+
 
 (defn normal-distr [mean std-deviation]
   (+ mean (* std-deviation (q/random-gaussian))))
@@ -106,6 +110,49 @@
 (def connection->infected :entity-a)
 (def connection->non-infected :entity-b)
 
+(defn every-n-seconds [n f]
+  (let [n (if (number? n) (constantly n) n)
+        till (atom (n))]
+    (fn [& args]
+      (swap! till - *dt*)
+      (when (< @till 0)
+        (reset! till (n))
+        (apply f args)))))
+
+
+;; ----------------------------------------
+
+(defonce timers (atom {}))
+
+(defn set-timer
+  [seconds]
+  (let [id (random-uuid)]
+    (swap! timers assoc id seconds)
+    id))
+
+(defn update-timers
+  [dt]
+  (swap! timers (fn [v]
+                  (into {}
+                        (comp
+                          (map (fn [[k v]] [k (- v dt)]))
+                          (filter (fn [[_ v]] (pos? v))))
+                        v))))
+
+(defn rang? [timer] (not (@timers timer)))
+
+(defn cooldown
+  [n f]
+  (let [t (atom nil)]
+    (fn [& args]
+      (when (rang? @t)
+        (reset! t (set-timer n))
+        (apply f args)))))
+
+;; ----------------------------------------
+
+
+
 ;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
@@ -189,14 +236,17 @@
 
 (def update-lifetime (comp kill-from-lifetime update-lifetime-1))
 
+(defn live [e op]
+  (update e :on-update-map (fnil conj {}) op))
+
 (defn kill-components
   [state]
   (let [kill?
         (into #{}
-                (comp
-                 (filter :kill?)
-                 (mapcat :components))
-                (entities state))]
+              (comp
+               (filter :kill?)
+               (mapcat :components))
+              (entities state))]
     (update-ents state
                  (fn [{:as e :keys [id]}]
                    (if (kill? id)
@@ -590,13 +640,16 @@
 
 (defn update-position
   [{:as entity :keys [velocity acceleration]}]
-  (if-not (-> entity :transform :pos)
+  (if-not (-> entity
+              :transform
+              :pos)
     entity
     (let [velocity (or velocity 0)
+          acceleration (or acceleration 0)
           velocity (+ velocity (* *dt* acceleration))
           rotation (-> entity
                        :transform
-                       :rotation)
+                       (:rotation 0))
           x (* *dt* velocity (Math/sin rotation))
           y (* *dt* velocity (- (Math/cos rotation)))]
       (-> entity
@@ -604,27 +657,36 @@
           (update-in [:transform :pos]
                      (fn [position]
                        (vector (+ (first position) x)
-                               (+ (second position) y))))))))
+                               (+ (second position)
+                                  y))))))))
+
 
 (defn activation-shine
   [{:as entity
     :keys [activation shine activation-shine-colors
            activation-shine activation-shine-speed]}]
-  (if (and activation activation-shine)
-    (let [shine (or shine 0)
-          shine (+ shine
-                   (* *dt*
-                      activation
-                      (or activation-shine-speed 1)))]
-      (assoc entity
-        :shine shine
-        :color (q/lerp-color
-                 (->hsb (or (:low activation-shine-colors)
-                            (q/color 40 96 255 255)))
-                 (->hsb (or (:high activation-shine-colors)
-                            (q/color 100 255 255)))
-                 (normalize-value-1 0 1 (Math/sin shine)))))
-    entity))
+  ;; The lerp color part is relatively expensive,
+  ;; if I have 1000+ entities
+  ;;
+  (if (:hidden? entity)
+    entity
+    (if (and activation activation-shine)
+      (let [shine (or shine 0)
+            shine (+ shine
+                     (* *dt*
+                        activation
+                        (or activation-shine-speed 1)))]
+        (assoc entity
+          :shine shine
+          :color
+            ;; defs/white
+            (q/lerp-color
+              (->hsb (or (:low activation-shine-colors)
+                         (q/color 40 96 255 255)))
+              (->hsb (or (:high activation-shine-colors)
+                         (q/color 100 255 255)))
+              (normalize-value-1 0 1 (Math/sin shine)))))
+      entity)))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
@@ -711,7 +773,7 @@
 (def connection->destination (comp :destination :transduction-model))
 
 (defn transduce-signal [destination source {:keys [f]}]
-  (update destination :activation + (f (:activation source))))
+  (update destination :activation (fnil + 0) (f (:activation source 0))))
 
 (defn transduce-signals
   [state]
@@ -757,16 +819,10 @@
 ;; sensors have 180 degree of seeing.
 ;; 1 directly in front 0 to the side, 0 when behind
 (defn calculate-adjustment [angle looking-direction]
-  (def angle angle)
-  (def looking-direction looking-direction)
   (max 0 (Math/cos (+ (* looking-direction q/TWO-PI) angle))))
 
 (defn ray-intensity
   [sensor-pos sensor-rotation sensor-looking-direction env]
-  (def sensor-pos sensor-pos)
-  (def sensor-rotation sensor-rotation)
-  (def sensor-looking-direction sensor-looking-direction)
-  (def env env)
   (transduce
    (map (fn [light]
           (let [distance (distance sensor-pos (position light))
@@ -882,34 +938,117 @@
                                           (:id se))
                                (append-ents [se]))}))))))
 
+(defn ->explosion
+  [{:keys [n size pos color spread]}]
+  (into
+    []
+    (map (fn [_]
+           (let [spawn-pos
+                   [(normal-distr (first pos) spread)
+                    (normal-distr (second pos) spread)]]
+             (-> (merge
+                   (->entity :circle)
+                   {:acceleration (normal-distr 1000 200)
+                    :color color
+                    :lifetime (normal-distr 1 0.5)
+                    :transform
+                      (assoc
+                        (->transform spawn-pos size size 1)
+                        :rotation (angle-between spawn-pos
+                                                 pos))})))))
+    (range n)))
+
+(defn +explosion
+  [state e]
+  (append-ents state
+               (->explosion {:color (:color e)
+                             :n 20
+                             :pos (position e)
+                             :size 10
+                             :spread 10})))
+
+
+(defn ->wobble-anim
+  [duration magnitute]
+  (let [s (atom {:time-since 0})
+        inner
+          (fn [e]
+            (if (= :done @s)
+              e
+              (do
+                (when-not (:initial-scale @s)
+                  (swap! s assoc
+                    :initial-scale
+                    (-> e
+                        :transform
+                        :scale)))
+                (swap! s update :time-since + *dt*)
+                (let [progress (/ (:time-since @s) duration)
+                      initial-scale (:initial-scale @s)]
+                  (if (< 1.0 progress)
+                    (do (reset! s :done)
+                        (assoc-in e
+                          [:transform :scale]
+                          initial-scale))
+                    (assoc-in e
+                      [:transform :scale]
+                      (q/lerp
+                        (:initial-scale @s)
+                        (* (:initial-scale @s) magnitute)
+                        (q/sin (float (* q/PI
+                                         progress))))))))))]
+    (fn ([e _state] (inner e)) ([e _state _k] (inner e)))))
+
+(defn wobble [e duration magnitute]
+  (live e
+        [:wobble
+         (->wobble-anim duration magnitute)]))
+
 (defn ->ray-source
-  [{:as opts
-    :keys [pos intensity scale shinyness]}]
+  [{:as opts :keys [pos intensity scale shinyness]}]
   [(merge
-    (->entity :circle)
-    {:color {:h 67 :s 7 :v 95}
-     :draggable? true
-     :particle? true
-     :ray-source? true
-     :makes-circular-shines? false
-     ;; true
-     :shinyness
-     (if-not
-         (nil? shinyness)
-         shinyness
-         intensity)
-     :on-update [(->circular-shine 1.5 (/ intensity 3))]
-     :transform (assoc (->transform pos 40 40 1) :scale (or scale 1))}
-    opts)])
+     (->entity :circle)
+     {:color {:h 67 :s 7 :v 95}
+      :draggable? true
+      :particle? true
+      :collides? true
+      :on-collide-map
+      {:burst (cooldown
+               2
+               (fn [e _other state _]
+                 {:updated-state
+                  (cond-> (+explosion state e)
+                    :wobble (update-in [:eid->entity
+                                        (:id e)]
+                                       wobble
+                                       1
+                                       3)
+                    (-> state
+                        :controls
+                        :ray-sources-die?)
+                    (assoc-in [:eid->entity (:id e)
+                               :lifetime]
+                              0.8))}))}
+      :ray-source? true
+      :makes-circular-shines? false
+      ;; true
+      :shinyness
+      (if-not (nil? shinyness) shinyness intensity)
+
+      ;; :on-update [(->circular-shine 1.5 (/ intensity 3))]
+
+      :transform (assoc (->transform pos 40 40 1)
+                        :scale (or scale 1))}
+     opts)])
 
 (defn ->body
   [{:as opts :keys [pos scale rot]}]
   (merge (->entity :rect)
          {:body? true
-          :transform
-          (assoc
-           (->transform pos 50 80 scale)
-           :rotation rot)}
+          ;; 'physical'
+          :collides? true
+          :transform (assoc (->transform pos 50 80 scale)
+                       :rotation rot)}
          opts))
 
 
@@ -965,103 +1104,105 @@
   (if-not (:particle? e)
     e
     (kinetic-energy-motion e
-                           (or
-                            (:kinetic-energy e)
-                            (:brownian-factor (controls))
-                            0))))
+                           (or (:kinetic-energy e)
+                               (:brownian-factor (controls))
+                               0))))
 
-(defn ->explosion
-  [{:keys [n size pos color spread]}]
-  (into
-    []
-    (map (fn [_]
-           (let [spawn-pos
-                   [(normal-distr (first pos) spread)
-                    (normal-distr (second pos) spread)]]
-             (-> (merge
-                   (->entity :circle)
-                   {:acceleration (normal-distr 1000 200)
-                    :color color
-                    :lifetime (normal-distr 1 0.5)
-                    :transform
-                      (assoc
-                        (->transform spawn-pos size size 1)
-                        :rotation (angle-between spawn-pos
-                                                 pos))})))))
-    (range n)))
 
-(defn ->wobble-anim [duration magnitute]
-  (let [s (atom {:time-since 0})]
-    (fn [e _state]
-      (if (= :done @s)
-        e
-        (do
-          (when-not (:initial-scale @s)
-            (swap! s assoc :initial-scale (-> e :transform :scale)))
-          (swap! s update :time-since + *dt*)
-          (let [progress (/ (:time-since @s) duration)
-                initial-scale (:initial-scale @s)]
-            (if (< 1.0 progress)
-              (do
-                (reset! s :done)
-                (assoc-in e [:transform :scale] initial-scale))
-              (assoc-in e
-                        [:transform :scale]
-                        (q/lerp
-                         (:initial-scale @s)
-                         (* (:initial-scale @s) magnitute)
-                         (q/sin (float (* q/PI progress))))))))))))
 
-(defn wobble-entity
-  [entity]
-  (update
-   entity
-   :on-update
-   conj
-   (->wobble-anim 1 3)))
+
 
 (defn ray-source-collision-burst
   [state]
-  (let [sources (sequence (comp
-                           (filter :ray-source?)
-                           (filter
-                            (comp
-                             #(< 1000 %)
-                             #(- (q/millis) %)
-                             (fnil identity 0)
-                             :last-exploded)))
+  (let [sources (sequence (comp (filter :ray-source?)
+                                (filter (comp
+                                         #(< 1000 %)
+                                         #(- (q/millis) %)
+                                         (fnil identity 0)
+                                         :last-exploded)))
                           (entities state))
         bodies (filter :body? (entities state))
-        explode-them
-          (into #{}
-                (comp (remove (fn [[s b]]
-                                (< (* (scale s) 100) (distance (position s) (position b)))))
-                      (map first)
-                      (map :id))
-                (for [source sources body bodies] [source body]))]
+        explode-them (into #{}
+                           (comp (remove
+                                  (fn [[s b]]
+                                    (< (* (scale s) 100)
+                                       (distance
+                                        (position s)
+                                        (position b)))))
+                                 (map first)
+                                 (map :id))
+                           (for [source sources
+                                 body bodies]
+                             [source body]))]
     (-> state
         (update :eid->entity
                 (fn [lut]
                   (reduce (fn [m id]
                             (cond-> m
-                              :always (assoc-in [id :last-exploded] (q/millis))
-                              :always (update-in [id :on-update]
-                                                 conj
-                                                 (->wobble-anim 1 3))
-                              (-> state :controls :ray-sources-die?)
-                              (assoc-in [id :lifetime] 0.8)))
-                    lut
-                    explode-them)))
-        (append-ents (into []
-                           (comp (map (entities-by-id state))
-                                 (map (fn [e]
-                                        (->explosion {:color (:color e)
-                                                      :n 20
-                                                      :pos (position e)
-                                                      :size 10
-                                                      :spread 10})))
-                                 cat)
-                           explode-them)))))
+                              :always (assoc-in
+                                       [id :last-exploded]
+                                       (q/millis))
+                              :always (update-in
+                                       [id :on-update]
+                                       conj
+                                       (->wobble-anim 1 3))
+                              (-> state
+                                  :controls
+                                  :ray-sources-die?)
+                              (assoc-in [id :lifetime]
+                                        0.8)))
+                          lut
+                          explode-them)))
+        (append-ents
+         (into []
+               (comp (map (entities-by-id state))
+                     (map (fn [e]
+                            (->explosion {:color (:color e)
+                                          :n 20
+                                          :pos (position e)
+                                          :size 10
+                                          :spread 10})))
+                     cat)
+               explode-them)))))
+
+
+
+(defn update-collision
+  [state entity-source entity-target]
+  (reduce (fn [s [k f]]
+            (let [{:as e :keys [updated-state]}
+                    ;;
+                    ;; Collide is a function of
+                    ;; [ entity other state key ]
+                    ;;
+                    (f ((entities-by-id s) entity-target)
+                       ((entities-by-id s) entity-source)
+                       s
+                       k)]
+              (cond updated-state updated-state
+                    e (assoc-in s
+                        [:eid->entity entity-target]
+                        e)
+                    :else s)))
+    state
+    (:on-collide-map ((entities-by-id state)
+                       entity-target))))
+
+(defn update-collisions
+  [state]
+  (let [ents (vec (filter :collides? (entities state)))]
+    (reduce
+     (fn [s [i j]]
+       (->
+        s
+        (update-collision (:id (ents i)) (:id (ents j)))
+        (update-collision (:id (ents j)) (:id (ents i)))))
+     state
+     (let [ ;; positions
+           positions (map position ents)
+           ;; todo hitbox
+           radii (repeat (count positions) 20)]
+       (collide/collisions positions radii)))))
 
 (defn update-update-functions-1
   [state]
@@ -1069,17 +1210,19 @@
              (completing (fn [s {:keys [on-update id]}]
                            (reduce (fn [s f]
                                      (let [{:as e :keys [updated-state]}
-                                             (f ((entities-by-id s) id) s)]
+                                           (f ((entities-by-id s) id) s)]
                                        (cond updated-state updated-state
                                              e (assoc-in s [:eid->entity id] e)
                                              :else s)))
-                             s
-                             on-update)))
+                                   s
+                                   on-update)))
              state
              (entities state)))
 
 (defonce input (atom nil))
 (defonce output (atom nil))
+
+
 
 (defn update-update-functions-map-1
   [k]
@@ -1106,7 +1249,6 @@
 
 (defn ->call-callbacks
   [k]
-  (def k k)
   (fn [state e]
     ;; (def state state)
     ;; (def e e)
@@ -1145,14 +1287,7 @@
    update-state-update-functions-1
    update-state-update-functions-map))
 
-(defn every-n-seconds [n f]
-  (let [n (if (number? n) (constantly n) n)
-        till (atom (n))]
-    (fn [& args]
-      (swap! till - *dt*)
-      (when (< @till 0)
-        (reset! till (n))
-        (apply f args)))))
+
 
 (defn for-n-seconds
   [n f cb]
@@ -1177,8 +1312,7 @@
      (let [r @eventq]
        (reset! eventq [])
        r)))
-  ([state]
-   (apply-events state event-queue)))
+  ([state] (apply-events state event-queue)))
 
 
 (defn dart-distants-to-middle
@@ -1478,8 +1612,7 @@
 (defn put-rotation [e rotation]
   (assoc-in e [:transform :rotation] rotation))
 
-(defn live [e op]
-  (update e :on-update-map (fnil conj {}) op))
+
 
 (defn clone-entity
   [e]
@@ -1507,7 +1640,7 @@
 
 (defmulti setup-version (comp keyword :v :controls))
 
-(defonce the-state (atom {:event-q (atom [])}))
+
 
 
 (defn from-left [amount]
