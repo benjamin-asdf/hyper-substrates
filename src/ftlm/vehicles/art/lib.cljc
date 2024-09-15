@@ -15,6 +15,31 @@
 (defn normal-distr [mean std-deviation]
   (+ mean (* std-deviation (q/random-gaussian))))
 
+(defn v* [[a b] [a' b']]
+  [(* a a')
+   (* b b')])
+
+(defn v*-1 [[a b] s]
+  [(* a s)
+   (* b s)])
+
+(defn v+ [[a b] [a' b']]
+  [(+ a a')
+   (+ b b')])
+
+(defn v- [[a b] [a' b']]
+  [(- a a')
+   (- b b')])
+
+(defn v-sum [v1 v2]
+  (mapv + v1 v2))
+
+(defn signum [x]
+  (cond
+    (<= x 0) -1
+    (> x 0) 1))
+
+
 (defn controls []
   (q/state :controls))
 
@@ -193,29 +218,7 @@
             (update :color
                     (fn [_c] (q/color shine 255 255))))))))
 
-(defn v* [[a b] [a' b']]
-  [(* a a')
-   (* b b')])
 
-(defn v*-1 [[a b] s]
-  [(* a s)
-   (* b s)])
-
-(defn v+ [[a b] [a' b']]
-  [(+ a a')
-   (+ b b')])
-
-(defn v- [[a b] [a' b']]
-  [(- a a')
-   (- b b')])
-
-(defn v-sum [v1 v2]
-  (mapv + v1 v2))
-
-(defn signum [x]
-  (cond
-    (<= x 0) -1
-    (> x 0) 1))
 
 (defn sine-wave [frequency time-in-millis]
   (* (Math/sin (* 2 Math/PI (/ time-in-millis 1000) frequency))))
@@ -895,26 +898,25 @@
                 :temperature-bubbles))]
     (assoc sensor :activation (min new-activation 14))))
 
-
-
 (defn ->circular-shine-1
-  [pos color speed]
-  (assoc (->entity :circle)
-         :transform (assoc (->transform pos 20 20 1)
-                           :absolute-scale 1)
-         :lifetime 1
-         :color (defs/color-map
-                  (rand-nth [:hit-pink :red :heliotrope
-                             :green-yellow :horizon :magenta
-                             :purple :sweet-pink :cyan]))
-         :z-index -4
-         :on-update [(->grow speed)
-                     ;; (->clamp-scale 20)
-                     ]))
+  [e]
+  (let [pos (position e)]
+    (assoc (->entity :circle)
+      :transform (assoc (->transform pos 20 20 1)
+                   :absolute-scale 1)
+      :lifetime 1
+      :color (defs/color-map
+               (rand-nth [:hit-pink :red :heliotrope
+                          :green-yellow :horizon :magenta
+                          :purple :sweet-pink :cyan]))
+      :z-index -4)))
 
 (defn ->circular-shine
-  ([freq speed] (->circular-shine freq speed 3))
-  ([freq speed lifetime]
+  ([freq speed]
+   (->circular-shine freq speed ->circular-shine-1))
+  ([freq speed make-shine]
+   (->circular-shine freq speed 3 make-shine))
+  ([freq speed lifetime make-shine]
    (let [s (atom {:next freq})
          freq (/ freq 3)]
      (fn [entity state]
@@ -922,14 +924,24 @@
        (when (<= (:next @s) 0)
          (swap! s assoc :next (normal-distr freq freq))
          (let [c (->hsb (:color entity))
-               se (assoc (->circular-shine-1
-                          (position entity)
-                          (q/color (q/hue c)
-                                   (q/saturation c)
-                                   (q/brightness c)
-                                   100)
-                          speed)
-                         :lifetime (normal-distr lifetime (Math/sqrt lifetime)))]
+               se
+               (->
+                (assoc
+                 (make-shine entity
+                             #_(q/color
+                                (q/hue c)
+                                (q/saturation c)
+                                (q/brightness c)
+                                100))
+                 :on-update [(->grow speed)])
+                (update
+                 :lifetime
+                 (fn [l]
+                   (or l
+                       (normal-distr lifetime
+                                     (Math/sqrt
+                                      lifetime))))))
+               ]
            {:updated-state (-> state
                                (update-in [:eid->entity
                                            (:id entity)
@@ -938,25 +950,26 @@
                                           (:id se))
                                (append-ents [se]))}))))))
 
+
 (defn ->explosion
   [{:keys [n size pos color spread]}]
   (into
-    []
-    (map (fn [_]
-           (let [spawn-pos
-                   [(normal-distr (first pos) spread)
-                    (normal-distr (second pos) spread)]]
-             (-> (merge
-                   (->entity :circle)
-                   {:acceleration (normal-distr 1000 200)
-                    :color color
-                    :lifetime (normal-distr 1 0.5)
-                    :transform
-                      (assoc
-                        (->transform spawn-pos size size 1)
-                        :rotation (angle-between spawn-pos
-                                                 pos))})))))
-    (range n)))
+   []
+   (map (fn [_]
+          (let [spawn-pos
+                [(normal-distr (first pos) spread)
+                 (normal-distr (second pos) spread)]]
+            (-> (merge
+                 (->entity :circle)
+                 {:acceleration (normal-distr 1000 200)
+                  :color color
+                  :lifetime (normal-distr 1 0.5)
+                  :transform
+                  (assoc
+                   (->transform spawn-pos size size 1)
+                   :rotation (angle-between spawn-pos
+                                            pos))})))))
+   (range n)))
 
 (defn +explosion
   [state e]
@@ -1013,22 +1026,23 @@
       :particle? true
       :collides? true
       :on-collide-map
-      {:burst (cooldown
-               2
-               (fn [e _other state _]
-                 {:updated-state
-                  (cond-> (+explosion state e)
-                    :wobble (update-in [:eid->entity
-                                        (:id e)]
-                                       wobble
-                                       1
-                                       3)
-                    (-> state
-                        :controls
-                        :ray-sources-die?)
-                    (assoc-in [:eid->entity (:id e)
-                               :lifetime]
-                              0.8))}))}
+      {:burst
+       (cooldown
+        2
+        (fn [e _other state _]
+          {:updated-state
+           (cond-> (+explosion state e)
+             :wobble (update-in [:eid->entity
+                                 (:id e)]
+                                wobble
+                                1
+                                3)
+             (-> state
+                 :controls
+                 :ray-sources-die?)
+             (assoc-in [:eid->entity (:id e)
+                        :lifetime]
+                       0.8))}))}
       :ray-source? true
       :makes-circular-shines? false
       ;; true
@@ -1304,14 +1318,15 @@
 (def event-queue (atom []))
 
 (defmulti event! (fn [e _] (or (:kind e) e)))
+(defmethod event! :f [_ f] (f))
 
 (defn apply-events
   ([state eventq]
    (reduce (fn [s e] (event! e s))
-     state
-     (let [r @eventq]
-       (reset! eventq [])
-       r)))
+           state
+           (let [r @eventq]
+             (reset! eventq [])
+             r)))
   ([state] (apply-events state event-queue)))
 
 
@@ -1612,8 +1627,6 @@
 (defn put-rotation [e rotation]
   (assoc-in e [:transform :rotation] rotation))
 
-
-
 (defn clone-entity
   [e]
   (merge (->entity (:kind e) (dissoc e :id))
@@ -1639,9 +1652,6 @@
 ;;           nil)))))
 
 (defmulti setup-version (comp keyword :v :controls))
-
-
-
 
 (defn from-left [amount]
   (- (q/width) amount))

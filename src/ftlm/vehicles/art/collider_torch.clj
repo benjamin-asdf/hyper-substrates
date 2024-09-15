@@ -37,8 +37,7 @@
   [positions radii]
   (let [out (torch/zeros [(py.. positions (size 0)) 2]
                          :device *torch-device*
-                         :dtype
-                         torch/long)]
+                         :dtype torch/long)]
     (py/with-gil-stack-rc-context
       (let [distances (pairwise-distance positions)
             sum-radii (-> (torch/add
@@ -49,7 +48,8 @@
                           ;;  duplicates
                           (torch/triu 1))]
         (-> (torch/lt distances sum-radii)
-            (torch/nonzero :out out))))))
+            (torch/nonzero :out out))))
+    out))
 
 ;;
 ;; returns a list of pairs [idx-a idx-b]
@@ -70,8 +70,7 @@
         radii (torch/tensor (vec radii)
                             :device pyutils/*torch-device*
                             :dtype torch/float)]
-    (pyutils/torch->jvm (detect-collisions positions
-                                           radii))))
+    (pyutils/torch->jvm (detect-collisions positions radii))))
 
 
 (comment
