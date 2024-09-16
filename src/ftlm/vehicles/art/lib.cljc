@@ -1029,43 +1029,43 @@
         [:wobble
          (->wobble-anim duration magnitute)]))
 
+(defn burst
+  [e _other state _]
+  {:updated-state
+   (-> (+explosion state e)
+       (update-in [:eid->entity (:id e)] wobble 1 3))})
+
 (defn ->ray-source
   [{:as opts :keys [pos intensity scale shinyness]}]
-  [(merge
-     (->entity :circle)
-     {:color {:h 67 :s 7 :v 95}
-      :draggable? true
-      :particle? true
-      :collides? true
-      :on-collide-map
-      {:burst
-       (cooldown
-        2
-        (fn [e _other state _]
-          {:updated-state
-           (cond-> (+explosion state e)
-             :wobble (update-in [:eid->entity
-                                 (:id e)]
-                                wobble
-                                1
-                                3)
-             (-> state
-                 :controls
-                 :ray-sources-die?)
-             (assoc-in [:eid->entity (:id e)
-                        :lifetime]
-                       0.8))}))}
-      :ray-source? true
-      :makes-circular-shines? false
-      ;; true
-      :shinyness
-      (if-not (nil? shinyness) shinyness intensity)
-
-      ;; :on-update [(->circular-shine 1.5 (/ intensity 3))]
-
-      :transform (assoc (->transform pos 40 40 1)
+  [(merge (->entity :circle)
+          {:collides? true
+           :color {:h 67 :s 7 :v 95}
+           :draggable? true
+           :on-collide-map
+             {:burst
+                (cooldown
+                  2
+                  (fn [e _other state _]
+                    {:updated-state
+                       (cond-> (+explosion state e)
+                         :wobble (update-in [:eid->entity
+                                             (:id e)]
+                                            wobble
+                                            1
+                                            3)
+                         (-> state
+                             :controls
+                             :ray-sources-die?)
+                           (assoc-in [:eid->entity (:id e)
+                                      :lifetime]
+                             0.8))}))}
+           :particle? true
+           :ray-source? true
+           :shinyness
+             (if-not (nil? shinyness) shinyness intensity)
+           :transform (assoc (->transform pos 40 40 1)
                         :scale (or scale 1))}
-     opts)])
+          opts)])
 
 (defn ->body
   [{:as opts :keys [pos scale rot]}]
