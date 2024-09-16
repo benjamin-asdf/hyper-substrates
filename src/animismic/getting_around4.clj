@@ -91,60 +91,42 @@
 
 (defn update-entity
   [entity state env]
-  (->
-   entity
-
-   (lib/update-body state)
-   lib/brownian-motion
-   lib/friction
-   lib/dart-distants-to-middle
-   lib/move-dragged
-   lib/update-rotation
-   lib/update-position
-   (lib/update-sensors env)
-   lib/activation-decay
-   lib/activation-shine
-   lib/shine
-   lib/update-lifetime
-
-   ))
+  (-> entity
+      (lib/update-body state)
+      lib/brownian-motion
+      lib/friction
+      lib/dart-distants-to-middle
+      lib/move-dragged
+      lib/update-rotation
+      lib/update-position
+      (lib/update-sensors env)
+      lib/activation-decay
+      lib/activation-shine
+      lib/shine
+      lib/update-lifetime))
 
 (defn update-state-inner
   [state dt current-tick]
-  ;; state
-  ;; (when (< 10 (:t state 0))
-  ;;   (q/exit))
-  (time
-   (let [env (env state)
-         state (binding [*dt* dt]
-                 (-> state
-                     (update :t (fnil inc 0))
-                     (assoc :last-tick current-tick)
-
-                     ;; 77ms:
-                     ;;
-                     ;; lib/apply-update-events
-                     ;; lib/update-update-functions
-                     ;; lib/update-state-update-functions
-                     ;; lib/apply-events
-                     ;; (lib/update-ents
-                     ;;  #(update-entity % state env))
-
-                     ;;
-
-                     ;; 30ms:
-                     lib/update-late-update-map
-                     ;; lib/transduce-signals
-
-                     ;; 20ms by itself:
-
-                     lib/track-components
-
-                     lib/track-conn-lines
-                     lib/update-collisions
-                     lib/kill-entities
-                     ))]
-     state)))
+  (let [env (env state)
+        state (binding [*dt* dt]
+                (-> state
+                    (update :t (fnil inc 0))
+                    (assoc :last-tick current-tick)
+                    lib/apply-update-events
+                    lib/update-update-functions
+                    lib/update-state-update-functions
+                    lib/apply-events
+                    (lib/update-ents-parallel
+                      #(update-entity % state env))
+                    lib/update-late-update-map
+                    lib/transduce-signals
+                    ;; those 2 are heavy,
+                    lib/track-components
+                    lib/track-conn-lines
+                    ;; also heavy:
+                    lib/update-collisions
+                    lib/kill-entities))]
+    state))
 
 (defn update-state
   [_]
@@ -533,15 +515,14 @@
                       vehicle-activation))}))]))))
 
 
-
-(defmethod lib/setup-version :getting-around-2
+(defmethod lib/setup-version :getting-around-4
   [state]
   (let
       [state
        (->
         state
         add-ray-source
-        (assoc-in
+        #_(assoc-in
          [:on-update-map :finds-neighbours]
          (lib/every-n-seconds
           1
@@ -593,7 +574,7 @@
                                    s)
                                   (:entity-b
                                    e))))))]))])))))))
-        (assoc-in
+        #_(assoc-in
          [:on-update-map :beziers]
          (lib/every-n-seconds
           (fn [] (lib/normal-distr 1 1))
@@ -646,7 +627,7 @@
         (lib/append-ents
          (mapcat identity
                  (repeatedly
-                  500
+                  150
                   (fn []
                     (let
                         [cart
@@ -827,13 +808,9 @@
 (sketch
  {:background-color 0
   :time-speed 3
-  :v :getting-around-2
+  :v :getting-around-4
   :height nil
   :width nil})
-
-
-
-
 
 
 (comment

@@ -61,6 +61,13 @@
 (defn update-ents [state f]
   (update state :eid->entity (fn [s] (update-vals s f))))
 
+(defn update-ents-parallel
+  [state f]
+  (update state
+          :eid->entity
+          (fn [s]
+            (into {} (pmap (fn [[k v]] [k (f v)]) s)))))
+
 (defn validate-entity
   [e]
   (if-not (:entity? e)
@@ -272,8 +279,15 @@
 
 (defn kill-entities-1
   [state]
-  ;; (println (filter :kill? (entities state)))
-  (update--entities state (fn [ents] (remove (comp :kill? val) ents))))
+  (update state
+          :eid->entity
+          (fn [m]
+            (persistent! (reduce-kv (fn [acc k v]
+                                      (if (:kill? v)
+                                        acc
+                                        (assoc! acc k v)))
+                                    (transient {})
+                                    m)))))
 
 (def kill-entities (comp kill-entities-1 kill-connections kill-components))
 
@@ -515,7 +529,7 @@
                 (entities state))]
     (->
       state
-      (update-ents
+      (update-ents-parallel
         (fn [{:as ent :keys [id]}]
           (if-let [parent (parent-by-id id)]
             (let [relative-position
@@ -643,9 +657,7 @@
 
 (defn update-position
   [{:as entity :keys [velocity acceleration]}]
-  (if-not (-> entity
-              :transform
-              :pos)
+  (if-not (-> entity :transform :pos)
     entity
     (let [velocity (or velocity 0)
           acceleration (or acceleration 0)
@@ -1300,8 +1312,6 @@
    state
    update-state-update-functions-1
    update-state-update-functions-map))
-
-
 
 (defn for-n-seconds
   [n f cb]

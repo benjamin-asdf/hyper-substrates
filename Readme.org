@@ -89,6 +89,26 @@ Inspirations:
 - [[https://youtu.be/S7582jc5Hnk?si=h-6YArnxwqPi_dPH][chemical computing]]
 
 
+* Toys, Music, Memes, Software Animals
+
+The /neuronal memetics hypothesis/ one might say is that brain software is made from harmonic, agental (competent without comprehension) software animals.
+
+I expect brain software to be something like 'software that works more like music'.
+(Already the case on the system level: https://youtu.be/O4FCu1NqdYo?si=uZJP60ScDa9C-Uju).
+
+I think memetics and neuronal darwnism is not utilized they way it could in systems neuroscience and neurophilosophy.
+(https://faster-than-light-memes.xyz/benjamin-overview.html).
+
+The difference of toys and technology is nominal. I think that toys, games, user interfaces, computation and technology ultimately are on continua somewhere,
+but the same underlying theory will describe them.
+
+I am a fan of pixars /Inside Out/ (1+2), I love the cognitive system as a colorful computer system.
+This colorful information processsing system the flair that I want my software art explorations to have.
+
+Art diary: https://faster-than-light-memes.xyz/art-diary.html
+
+Next, I would like to play around with giving a Braitenberg Vehicle memories in the form of hyperdimensional associative data structures.
+
 * Run
 
 - have some kind of python env
