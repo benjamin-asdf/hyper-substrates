@@ -9,6 +9,7 @@
    :black {:h 0 :s 0 :v 0}
    :cyan {:h 180 :s 100 :v 100}
    :dark-blue {:h 224 :s 255 :v 41}
+   :deep-pink {:h 333 :s 92 :v 100}
    :fruit-salad {:h 133 :s 54 :v 61}
    :green-yellow {:h 84 :s 82 :v 100}
    :heliotrope {:h 295 :s 46 :v 100}

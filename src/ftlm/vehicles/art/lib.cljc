@@ -1,6 +1,8 @@
 (ns ftlm.vehicles.art.lib
   (:require
    [quil.core :as q :include-macros true]
+   [fastmath.core :as fm]
+   [fastmath.random :as fm.rand]
    [ftlm.vehicles.art.collider :as collide]
    [ftlm.vehicles.art.defs :as defs]
    [ftlm.vehicles.art.util :as u])
@@ -1707,3 +1709,12 @@
                                     (:id destination)
                                     f)})
       (suicide-packt [source destination])))
+
+(defn kill-some
+  [chance]
+  (fn [s]
+    (update-ents s
+                 (fn [e]
+                   (if-not (zero? (fm.rand/flip chance))
+                     (assoc e :kill? true)
+                     e)))))
