@@ -58,23 +58,42 @@
 (defn destroy [state eid]
   (update state :eid->entity dissoc eid))
 
+(defn run-or-kill
+  [f]
+  (fn [e]
+    #?(:clj
+       (try
+         (f e)
+         (catch Exception ex
+           (println ex)
+           (if (map? e)
+             (assoc e :kill? true)
+             {:kill? true})))
+       :cljs
+       (try
+         (f e)
+         (catch js/Error ex
+           (println ex)
+           (if (map? e)
+             (assoc e :kill? true)
+             {:kill? true}))))))
+
 (defn update-ents [state f]
-  (update state :eid->entity (fn [s] (update-vals s f))))
+  (update state :eid->entity (fn [s] (update-vals s (run-or-kill f)))))
 
 (defn update-ents-parallel
   [state f]
   (update state
           :eid->entity
           (fn [s]
-            (into {} (pmap (fn [[k v]] [k (f v)]) s)))))
+            (into {}
+                  (pmap (fn [[k v]] [k ((run-or-kill f) v)])
+                        s)))))
 
 (defn validate-entity
   [e]
   (if-not (:entity? e)
-    (throw #?(:cljs (js/Error. (str "Not an entity: "
-                                    (prn-str e)))
-              :clj (Exception. (str "Not an entity: "
-                                    (prn-str e)))))
+    (do (println (str "Not an entity: " (prn-str e))) nil)
     e))
 
 (defn flatten-components
@@ -92,7 +111,6 @@
     ents))
 
 
-
 (defn update--entities
   [state f]
   (update state :eid->entity (fn [s] (into {} (f s)))))
@@ -102,18 +120,7 @@
 (defn rotation [e] (-> e transform :rotation))
 (defn scale [e] (-> e transform :scale))
 
-(defn ->connection-line-1 [entity-a entity-b]
-  {:connection-line? true
-   :entity-a (:id entity-a)
-   :entity-b (:id entity-b)
-   :transform (->transform (position entity-a) 1 1 1)
-   :color (:color entity-a)
-   :end-pos (position entity-b)
-   :children [(:id entity-b)
-              (:id entity-b)]})
 
-(defn ->connection-line [entity-a entity-b]
-  (merge (->entity :line) (->connection-line-1 entity-a entity-b)))
 
 ;; returns a fn that returns the args to q/bezier
 (defn ->bezier
@@ -133,11 +140,7 @@
             [(normal-distr 0 distr)
              (normal-distr 0 distr)]))
 
-(defn ->connection-bezier-line [entity-a entity-b]
-  (merge
-   (->entity :bezier-line {:bezier-line (rand-bezier 5)})
-   (->connection-line-1 entity-a entity-b)
-   ))
+
 
 (def connection->infected :entity-a)
 (def connection->non-infected :entity-b)
@@ -249,47 +252,35 @@
 (defn live [e op]
   (update e :on-update-map (fnil conj {}) op))
 
+(defn alive? [e] (and (:entity? e) (not (:kill? e))))
+
 (defn kill-components
   [state]
-  (let [kill?
-        (into #{}
-              (comp
-               (filter :kill?)
-               (mapcat :components))
-              (entities state))]
-    (update-ents state
-                 (fn [{:as e :keys [id]}]
-                   (if (kill? id)
-                     (assoc e :kill? true)
-                     e)))))
-
-(defn kill-connections
-  [state]
   (let [kill? (into #{}
-                    (comp (filter :connection-line?)
-                          (filter
-                           (fn [{:keys [entity-b entity-a]}]
-                             (or (:kill? ((entities-by-id state) entity-a))
-                                 (:kill? ((entities-by-id state) entity-b)))))
-                          (map :id))
+                    (comp (remove alive?)
+                          (mapcat :components))
                     (entities state))]
-    (update-ents state
-                 (fn [{:as e :keys [id]}]
-                   (if (kill? id) (assoc e :kill? true) e)))))
+    (update-ents
+      state
+      (fn [{:as e :keys [id]}]
+        (if (kill? id) (assoc e :kill? true) e)))))
 
 (defn kill-entities-1
   [state]
   (update state
           :eid->entity
           (fn [m]
-            (persistent! (reduce-kv (fn [acc k v]
-                                      (if (:kill? v)
-                                        acc
-                                        (assoc! acc k v)))
-                                    (transient {})
-                                    m)))))
+            (persistent! (reduce-kv
+                           (fn [acc k v]
+                             (if (or (:kill? v)
+                                     (not (validate-entity
+                                            v)))
+                               acc
+                               (assoc! acc k v)))
+                           (transient {})
+                           m)))))
 
-(def kill-entities (comp kill-entities-1 kill-connections kill-components))
+(def kill-entities (comp kill-entities-1 kill-components))
 
 (defn update-conn-line
   [{:as entity :keys [connection-line? entity-b entity-a]} state]
@@ -597,8 +588,9 @@
                       u/ascending
                       :id
                       u/ascending)
-                (sequence (comp (remove :hidden?)
-                                (map validate-entity))
+                (sequence (comp
+                           (remove :hidden?)
+                           (filter validate-entity))
                           entities))]
     (q/stroke-weight (or (:stroke-weight entity) 1))
     (draw-color color)
@@ -641,8 +633,8 @@
 (defn update-rotation
   [entity]
   (let [angular-velocity
-        (+ (:angular-velocity entity 0)
-           (* *dt* (:angular-acceleration entity 0)))]
+          (+ (:angular-velocity entity 0)
+             (* *dt* (:angular-acceleration entity 0)))]
     (-> entity
         (update-in [:transform :rotation]
                    (fnil #(+ % angular-velocity) 0))
@@ -771,24 +763,18 @@
 (def inhibit #(* -1 %))
 (defn ->weighted [weight] #(* weight %))
 
-(defn ->connection [{:keys [source destination hidden? bezier-line f] :as opts}]
-  (merge
-   opts
-   (cond
-     hidden?
-     (->entity :hidden-connection)
-     bezier-line
-     (->connection-bezier-line source destination)
-     :else (->connection-line source destination))
-   {:transduction-model (->transdution-model (:id source) (:id destination) f)
-    :connection? true
-    :hidden? hidden?}))
-
 (def connection->source (comp :source :transduction-model))
 (def connection->destination (comp :destination :transduction-model))
 
-(defn transduce-signal [destination source {:keys [f]}]
-  (update destination :activation (fnil + 0) (f (:activation source 0))))
+(defn transduce-signal
+  [destination source {:keys [f gain]}]
+  (let [gain (cond (number? gain) #(* gain %)
+                   (fn? gain) gain
+                   :else identity)]
+    (update destination
+            :activation
+            (fnil + 0)
+            (gain (f (:activation source 0))))))
 
 (defn transduce-signals
   [state]
@@ -1327,8 +1313,14 @@
 
 (def event-queue (atom []))
 
-(defmulti event! (fn [e _] (or (:kind e) e)))
-(defmethod event! :f [_ f] (f))
+(defmulti event!
+  (fn [e _]
+    (def foo e)
+    (if (fn? e) :fn (or (:kind e) e))))
+(defmethod event! :default [f s] (f s))
+(defmethod event! :fn [f s] (f s))
+
+;; (event! (fn [e] e) {})
 
 (defn apply-events
   ([state eventq]
@@ -1597,17 +1589,21 @@
             {:watch (->watch-ent state-atom {:id id} f)}
           :world world}))
 
-(defn ->suicide-packt [others]
+(defn ->suicide-packt
+  [others]
   (fn [e s _]
-    (if-not
-        (first
-         (filter
-          (some-fn :kill? (complement :entity?))
-          (filter
-           (comp others :id)
-           (entities-by-id s))))
-        e
-        (assoc e :kill? true))))
+    (if (some (complement alive?)
+              (map (entities-by-id s) others))
+      (assoc e :kill? true)
+      e)))
+
+(defn suicide-packt
+  [e others]
+  (live e
+        [[:suicide-packt (random-uuid)]
+         (->suicide-packt (into #{}
+                                (map (some-fn :id identity)
+                                     others)))]))
 
 (defn apply-update-events
   [state]
@@ -1668,3 +1664,46 @@
 
 (defn from-bottom [amount]
   (- (q/height) amount))
+
+;; ------------------------------------------------
+
+(defn ->connection-line-1
+  [entity-a entity-b]
+  {:children [(:id entity-b) (:id entity-b)]
+   :color (:color entity-a)
+   :connection-line? true
+   :end-pos (position entity-b)
+   :entity-a (:id entity-a)
+   :entity-b (:id entity-b)
+   ;; :on-update-map {:suicide-connection (->suicide-packt
+   ;;                                       #{(:id entity-b)
+   ;;                                         (:id entity-a)})}
+   :transform (->transform (position entity-a) 1 1 1)})
+
+(defn ->connection-line
+  [entity-a entity-b]
+  (->entity :line (->connection-line-1 entity-a entity-b)))
+
+(defn ->connection-bezier-line
+  [entity-a entity-b]
+  (merge (->entity :bezier-line
+                   {:bezier-line (rand-bezier 5)})
+         (->connection-line-1 entity-a entity-b)))
+
+(defn ->connection
+  [{:as opts
+    :keys [source destination hidden? bezier-line f]}]
+  (-> (merge opts
+             (cond hidden? (->entity :hidden-connection)
+                   bezier-line (->connection-bezier-line
+                                 source
+                                 destination)
+                   :else (->connection-line source
+                                            destination))
+             {:connection? true
+              :hidden? hidden?
+              :transduction-model (->transdution-model
+                                    (:id source)
+                                    (:id destination)
+                                    f)})
+      (suicide-packt [source destination])))

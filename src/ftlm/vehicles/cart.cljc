@@ -247,10 +247,6 @@
           comps)))
 
 
-
-
-
-
 #_(defn some-rand-environment-things
     [defs n]
     (let [stuff (repeatedly n
