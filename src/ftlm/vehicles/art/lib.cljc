@@ -846,10 +846,18 @@
 
 (defn ->grow
   [speed]
-  (fn [e _]
-    (cond-> (update-in e [:transform :scale] + (* *dt* speed))
-      (-> e :transform :absolute-scale)
-      (update-in [:transform :absolute-scale] + (* *dt* speed)))))
+  (let [f (fn [e]
+            (cond-> (update-in e
+                               [:transform :scale]
+                               +
+                               (* *dt* speed))
+              (-> e
+                  :transform
+                  :absolute-scale)
+              (update-in [:transform :absolute-scale]
+                         +
+                         (* *dt* speed))))]
+    (fn ([e _ __] (f e)) ([e _] (f e)))))
 
 (defn ->clamp-scale
   [max]
@@ -1009,6 +1017,7 @@
 
 (defn +explosion
   [state e]
+  (def e e)
   (append-ents state
                (->explosion {:color (:color e)
                              :n 20
