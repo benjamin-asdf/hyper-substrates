@@ -167,8 +167,7 @@
   (q/background (lib/->hsb (-> controls
                                :background-color)))
   (let [state {:controls controls :on-update []}
-        state (-> state
-                  lib/setup-version)]
+        state (-> state lib/setup-version)]
     (reset! lib/the-state state)))
 
 (defn sketch
@@ -179,9 +178,8 @@
    :size
    ;; :fullscreen
    ;; hard coding my monitor, else it was going to another monitor
-    ;; [2560 1920]
-
-   [500 500]
+    [2560 1920]
+    ;; [500 500]
    :setup (partial setup controls)
    :update #'update-state
    :draw #'draw-state
@@ -363,7 +361,7 @@
                                   (+ x (* lib/*dt* speed)))]
                 wave-value)))]
     (assoc e
-      :intensity (+ 10 (* 20 (:intensity-factor e))))))
+           :intensity (+ 10 (* 20 (:intensity-factor e))))))
 
 (defn add-ray-source
   [state]
@@ -385,104 +383,121 @@
                 :scale 0.75
                 :shinyness nil})]
           (->
-           e
-
-           #_(lib/live
-            [:rays
-             (lib/every-n-seconds
-              1.5
-              (fn [e s _]
-                {:updated-state
-                 (let [bodies (into [] (filter :body? (lib/entities s)))
-                       a (first (shuffle bodies))
-                       b e]
-                   (when (and a b)
-                     (->
-                      s
-                      (lib/append-ents
-                       [(merge
-                         (lib/->connection-bezier-line
-                          a
-                          b)
-                         {:lifetime (lib/normal-distr 2 1)})]))))}))])
-           #_(lib/live [:colors
-                        (lib/every-n-seconds
-                         0.5
-                         (fn [e s k]
-                           (assoc e
-                                  :color (defs/color-map
-                                           (rand-nth
-                                            [:green-yellow
-                                             :heliotrope])))))])
-           #_(lib/live [:kinetic
-                        (lib/every-n-seconds
-                         5
-                         (fn [e s k]
-                           (assoc e
-                                  :kinetic-energy
-                                  (lib/normal-distr 5 2))))])
-
-
-           (lib/live
-            [:circular-shine-radio
-             (lib/every-n-seconds
-              (fn []
-                (lib/normal-distr (/ 1.5 3)
-                                  (/ 1.5 3)))
-              (fn [ray s k]
-                {:updated-state
-                 (lib/append-ents
-                  s
-                  [(let [e (lib/->circular-shine-1 ray)]
-                     (->
-                      e
-                      (assoc :color (lib/with-alpha (:yellow defs/color-map) 0))
-                      (assoc :stroke-weight 3)
-                      (assoc :stroke (:color ray))
-                      (assoc
-                       :on-update
-                       [(lib/->grow
-                         (* 2 (+ 1 (:intensity-factor ray 0))))])
-                      (assoc :lifetime (lib/normal-distr 3 (Math/sqrt 3)))))])}))])
-
-           #_(lib/live
-              [:circular-shine-field
+            e
+            #_(lib/live
+                [:rays
+                 (lib/every-n-seconds
+                   1.5
+                   (fn [e s _]
+                     {:updated-state
+                        (let [bodies (into []
+                                           (filter :body?
+                                             (lib/entities
+                                               s)))
+                              a (first (shuffle bodies))
+                              b e]
+                          (when (and a b)
+                            (->
+                              s
+                              (lib/append-ents
+                                [(merge
+                                   (lib/->connection-bezier-line
+                                     a
+                                     b)
+                                   {:lifetime
+                                      (lib/normal-distr
+                                        2
+                                        1)})]))))}))])
+            #_(lib/live [:colors
+                         (lib/every-n-seconds
+                           0.5
+                           (fn [e s k]
+                             (assoc e
+                               :color
+                                 (defs/color-map
+                                   (rand-nth
+                                     [:green-yellow
+                                      :heliotrope])))))])
+            #_(lib/live [:kinetic
+                         (lib/every-n-seconds
+                           5
+                           (fn [e s k]
+                             (assoc e
+                               :kinetic-energy
+                                 (lib/normal-distr 5 2))))])
+            (lib/live
+              [:circular-shine-radio
                (lib/every-n-seconds
-                (fn []
-                  (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
-                (fn [ray s k]
-                  {:updated-state
-                   (lib/append-ents
-                    s
-                    [(let [e (lib/->circular-shine-1
-                              ray)]
-                       (->
-                        e
-                        (assoc :color
-                               ((rand-nth
-                                 [:black :hit-pink
-                                  :cyan
-                                  :heliotrope])
-                                defs/color-map))
-                        ;; (assoc :stroke-weight
-                        ;; 3)
-                        ;; (assoc :stroke (:color
-                        ;; ray))
-                        (assoc
-                         :on-update
-                         [(lib/->grow
-                           (* 2
-                              (+ 1
-                                 (:intensity-factor
-                                  ray
-                                  0))))])
-                        (assoc :lifetime
-                               (lib/normal-distr
-                                10
-                                (Math/sqrt
-                                 5)))))])}))])
-           (lib/live [:intensity-osc
-                      update-intensity-osc])))))))
+                 (fn []
+                   (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
+                 (fn [ray s k]
+                   {:updated-state
+                      (lib/append-ents
+                        s
+                        [(let [e (lib/->circular-shine-1
+                                   ray)]
+                           (->
+                             e
+                             (assoc :color
+                                      (lib/with-alpha
+                                        (:yellow
+                                          defs/color-map)
+                                        0))
+                             (assoc :stroke-weight 3)
+                             (assoc :stroke (:color ray))
+                             (assoc
+                               :on-update
+                                 [(lib/->grow
+                                    (* 2
+                                       (+ 1
+                                          (:intensity-factor
+                                            ray
+                                            0))))])
+                             (assoc :lifetime
+                                      (lib/normal-distr
+                                        3
+                                        (Math/sqrt
+                                          3)))))])}))])
+            #_(lib/live
+                [:circular-shine-field
+                 (lib/every-n-seconds
+                   (fn []
+                     (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
+                   (fn [ray s k]
+                     {:updated-state
+                        (lib/append-ents
+                          s
+                          [(let [e (lib/->circular-shine-1
+                                     ray)]
+                             (->
+                               e
+                               (assoc :color
+                                        ((rand-nth
+                                           [:black :hit-pink
+                                            :cyan
+                                            :heliotrope])
+                                          defs/color-map))
+                               ;; (assoc :stroke-weight
+                               ;; 3)
+                               ;; (assoc :stroke (:color
+                               ;; ray))
+                               (assoc
+                                 :on-update
+                                   [(lib/->grow
+                                      (*
+                                        2
+                                        (+
+                                          1
+                                          (:intensity-factor
+                                            ray
+                                            0))))])
+                               (assoc :lifetime
+                                        (lib/normal-distr
+                                          10
+                                          (Math/sqrt
+                                            5)))))])}))])
+            (lib/live [:intensity-osc
+                       update-intensity-osc])))))))
 
 (defn ->vehicle-field-1
   [grid-width]
@@ -505,6 +520,26 @@
 
 ;; (filter key (group-by :particle-field-id (lib/entities @lib/the-state)))
 
+
+(defn activation-flash
+  [e base-color high-color kont]
+  (let [sin (elib/sine-wave-machine 10 2000)
+        end-timer (lib/set-timer 1)]
+    (lib/live e
+              [:flash
+               (fn [e s k]
+                 (if (lib/rang? end-timer)
+                   (-> e
+                       (update :on-update-map dissoc k)
+                       kont)
+                   ;; (update e :color lib/with-alpha
+                   ;; (sin))
+                   (assoc e
+                     :color (q/lerp-color
+                              (lib/->hsb base-color)
+                              (lib/->hsb high-color)
+                              (sin)))))])))
+
 (defn ->vehicle-field
   [entities]
   (let [append-vehicles (into [] (map :id) entities)
@@ -516,25 +551,47 @@
         (lib/live pe/particle-update)
         (lib/live
           [:vehicle-field
-           (fn [e s k]
-             (let [vehicle-activation
-                   (pyutils/ensure-jvm
-                    (p/read-activations
-                     (:particle-field
-                      e)))]
-               {:updated-state
-                  (reduce
-                   (fn [s [id activation]]
-                     (assoc-in s
-                               [:eid->entity id :color]
-                               (if (zero? activation)
-                                 ((rand-nth [:black]) defs/color-map)
-                                 ((rand-nth [:cyan :hit-pink])
-                                  defs/color-map))))
-                   s
-                   (map vector
+           (lib/every-n-seconds
+             (fn [] (lib/normal-distr 1 1))
+             (fn [e s k]
+               (let [vehicle-activation
+                       (pyutils/ensure-jvm
+                         (p/read-activations
+                           (:particle-field e)))]
+                 {:updated-state
+                    (reduce
+                      (fn [s [id activation]]
+                        #_(assoc-in s
+                            [:eid->entity id :color]
+                            (if (zero? activation)
+                              ((rand-nth [:black])
+                                defs/color-map)
+                              ((rand-nth [:cyan :hit-pink])
+                                defs/color-map)))
+                        (if (zero? activation)
+                          s
+                          (->
+                            s
+                            (update-in
+                              [:eid->entity id]
+                              activation-flash
+                              (:navajo-white defs/color-map)
+                              (:green-yellow defs/color-map)
+                              (fn [e]
+                                (assoc e
+                                  :color (:navajo-white
+                                           defs/color-map)))
+                              ;; (if (zero? activation)
+                              ;;   ((rand-nth [:black])
+                              ;;   defs/color-map)
+                              ;;   ((rand-nth [:cyan
+                              ;;   :hit-pink])
+                              ;;    defs/color-map))
+                            ))))
+                      s
+                      (map vector
                         append-vehicles
-                        vehicle-activation))}))]))))
+                        vehicle-activation))})))]))))
 
 (defn +vehicle-field
   [state entities]
@@ -543,209 +600,132 @@
 
 (defn setup-internal
   [state]
-  (let
-    [state
-       (->
-         state
-         (assoc-in
-           [:on-update-map :update-colors]
-           (lib/every-n-seconds
-             (let [last-temp (atom 0)]
-               (fn [] (lib/normal-distr 0.1 0.1)))
-             (let [black? (atom false)]
-               (fn [s _]
-                 (let [color (defs/color-map
-                               (if @black?
-                                 :black
-                                 (rand-nth [:hit-pink
-                                            :heliotrope
-                                            :green-yellow
-                                            :white :cyan])))
-                       _ (swap! black? not)]
-                   (lib/update-ents
-                     s
-                     (fn [ent]
-                       (if-not (:update-colors1? ent)
-                         ent
-                         (if (not @black?)
-                           (assoc ent
-                             :color (defs/color-map :cyan))
-                           (assoc ent
-                             :color defs/black))))))))))
-         ;; ----------------------------------------------------
-         (lib/append-ents
-           (mapcat identity
-             (repeatedly
-               20
-               (fn []
-                 (let
-                   [angry? true
-                    ;; (zero? (fm.rand/flip 0.5))
-                    cart
-                      (cart/->cart
-                        {:body {:color (:navajo-white
-                                         defs/color-map)
-                                :hidden? true
-                                :scale 1
-                                :stroke-weight 0}
-                         :components
-                           [[:cart/entity :_
-                             {:f (fn []
-                                   (lib/->entity
-                                     :circle
-                                     {:anchor-position [0 0]
-                                      :color
-                                        (if angry?
-                                          (:red
-                                            defs/color-map)
-                                          defs/white)
-                                      :transform
-                                        (let [r 10]
-                                          (lib/->transform
-                                            [0 0]
-                                            r
-                                            r
-                                            1))
-                                      :update-colors?
-                                        true}))}]
-                            ;;
-                            [:cart/motor :ma
-                             {:anchor :bottom-right
-                              :corner-r 5
-                              :hidden? true
-                              :on-update
-                                [(lib/->cap-activation)]
-                              :rotational-power 0.02}]
-                            [:cart/motor :mb
-                             {:anchor :bottom-left
-                              :corner-r 5
-                              :hidden? true
-                              :on-update
-                                [(lib/->cap-activation)]
-                              :rotational-power 0.02}]
-                            ;; ---------------
-                            [:cart/sensor :sa
-                             {:anchor :top-right
-                              :hidden? true
-                              :modality :rays}]
-                            [:cart/sensor :sb
-                             {:anchor :top-left
-                              :hidden? true
-                              :modality :rays}]
-                            ;; ----------------------------
-                            [:brain/neuron :arousal
-                             {:on-update
-                                [(lib/->baseline-arousal
-                                   0.2)]}]
-                            ;; ----------------------------
-                            [:brain/connection :_
-                             {:destination [:ref :ma]
-                              :f :excite
-                              :hidden? true
-                              :source [:ref :arousal]}]
-                            [:brain/connection :_
-                             {:destination [:ref :mb]
-                              :f :excite
-                              :hidden? true
-                              :source [:ref :arousal]}]
-                            ;; ----------------------------
-                            [:brain/connection :_
-                             {:destination [:ref :ma]
-                              :f (lib/->weighted
-                                   (if angry? 1 -5))
-                              :hidden? true
-                              :source (if angry?
-                                        [:ref :sb]
-                                        [:ref :sa])}]
-                            [:brain/connection :_
-                             {:destination [:ref :mb]
-                              :f (lib/->weighted
-                                   (if angry? 1 -5))
-                              :hidden? true
-                              :source (if angry?
-                                        [:ref :sa]
-                                        [:ref :sb])}]]})]
-                   cart))))))]
-    state))
+  (-> state
+      (assoc-in
+       [:on-update-map :update-colors]
+       (lib/every-n-seconds
+        (let [last-temp (atom 0)]
+          (fn [] (lib/normal-distr 0.1 0.1)))
+        (let [black? (atom false)]
+          (fn [s _]
+            (let [color (defs/color-map
+                          (if @black?
+                            :black
+                            (rand-nth [:hit-pink
+                                       :heliotrope
+                                       :green-yellow
+                                       :white :cyan])))
+                  _ (swap! black? not)]
+              (lib/update-ents
+               s
+               (fn [ent]
+                 (if-not (:update-colors1? ent)
+                   ent
+                   (if (not @black?)
+                     (assoc ent
+                            :color (defs/color-map :cyan))
+                     (assoc ent
+                            :color defs/black))))))))))))
 
+(defn red-guys
+  [state]
+  (->
+    state
+    (lib/append-ents
+      (mapcat identity
+        (repeatedly
+          5
+          (fn []
+            (let [angry? true
+                  cart
+                    (cart/->cart
+                      {:body {:color (:navajo-white
+                                       defs/color-map)
+                              :hidden? true
+                              :scale 1
+                              :stroke-weight 0}
+                       :components
+                         [[:cart/entity :_
+                           {:f
+                              (fn []
+                                (lib/->entity
+                                  :circle
+                                  {:anchor-position [0 0]
+                                   :color
+                                     (if angry?
+                                       (:red defs/color-map)
+                                       defs/white)
+                                   :red-guy? true
+                                   :transform
+                                     (let [r 10]
+                                       (lib/->transform
+                                         [0 0]
+                                         r
+                                         r
+                                         1))
+                                   :update-colors? true}))}]
+                          ;;
+                          [:cart/motor :ma
+                           {:anchor :bottom-right
+                            :corner-r 5
+                            :hidden? true
+                            :on-update
+                              [(lib/->cap-activation)]
+                            :rotational-power 0.02}]
+                          [:cart/motor :mb
+                           {:anchor :bottom-left
+                            :corner-r 5
+                            :hidden? true
+                            :on-update
+                              [(lib/->cap-activation)]
+                            :rotational-power 0.02}]
+                          ;; ---------------
+                          [:cart/sensor :sa
+                           {:anchor :top-right
+                            :hidden? true
+                            :modality :rays}]
+                          [:cart/sensor :sb
+                           {:anchor :top-left
+                            :hidden? true
+                            :modality :rays}]
+                          ;; ----------------------------
+                          [:brain/neuron :arousal
+                           {:on-update
+                              [(lib/->baseline-arousal
+                                 0.2)]}]
+                          ;; ----------------------------
+                          [:brain/connection :_
+                           {:destination [:ref :ma]
+                            :f :excite
+                            :hidden? true
+                            :source [:ref :arousal]}]
+                          [:brain/connection :_
+                           {:destination [:ref :mb]
+                            :f :excite
+                            :hidden? true
+                            :source [:ref :arousal]}]
+                          ;; ----------------------------
+                          [:brain/connection :_
+                           {:destination [:ref :ma]
+                            :f (lib/->weighted
+                                 (if angry? 1 -5))
+                            :hidden? true
+                            :source (if angry?
+                                      [:ref :sb]
+                                      [:ref :sa])}]
+                          [:brain/connection :_
+                           {:destination [:ref :mb]
+                            :f (lib/->weighted
+                                 (if angry? 1 -5))
+                            :hidden? true
+                            :source (if angry?
+                                      [:ref :sa]
+                                      [:ref :sb])}]]})]
+              cart)))))))
 
-(defmethod lib/setup-version :getting-around-5 [state] (setup-internal state))
-
-(defn vehicle
-  []
-  (let [angry? false
-        cart
-        (cart/->cart
-         {:body {:color (:navajo-white defs/color-map)
-                 :hidden? true
-                 :scale 1
-                 :stroke-weight 0}
-          :components
-          [[:cart/entity :_
-            {:f (fn []
-                  (lib/->entity
-                   :circle
-                   {:anchor-position [0 0]
-                    :color (if angry?
-                             (:red defs/color-map)
-                             defs/white)
-                    :transform
-                    (let [r 10]
-                      (lib/->transform [0 0] r r 1))
-                    :update-colors? true}))}]
-           ;;
-           [:cart/motor :ma
-            {:anchor :bottom-right
-             :corner-r 5
-             :hidden? true
-             :on-update [(lib/->cap-activation)]
-             :rotational-power 0.02}]
-           [:cart/motor :mb
-            {:anchor :bottom-left
-             :corner-r 5
-             :hidden? true
-             :on-update [(lib/->cap-activation)]
-             :rotational-power 0.02}]
-           ;; ---------------
-           [:cart/sensor :sa
-            {:anchor :top-right
-             :hidden? true
-             :modality :rays}]
-           [:cart/sensor :sb
-            {:anchor :top-left
-             :hidden? true
-             :modality :rays}]
-           ;; ----------------------------
-           [:brain/neuron :arousal
-            {:on-update [(lib/->baseline-arousal
-                          0.2)]}]
-           ;; ----------------------------
-           [:brain/connection :_
-            {:destination [:ref :ma]
-             :f :excite
-             :hidden? true
-             :source [:ref :arousal]}]
-           [:brain/connection :_
-            {:destination [:ref :mb]
-             :f :excite
-             :hidden? true
-             :source [:ref :arousal]}]
-           ;; ----------------------------
-           [:brain/connection :_
-            {:destination [:ref :ma]
-             :f (lib/->weighted (if angry? 1 -5))
-             :hidden? true
-             :source
-             (if angry? [:ref :sb] [:ref :sa])}]
-           [:brain/connection :_
-            {:destination [:ref :mb]
-             :f (lib/->weighted (if angry? 1 -5))
-             :hidden? true
-             :source
-             (if angry? [:ref :sa] [:ref :sb])}]]})]
-    cart))
-
-
+(defmethod lib/setup-version :getting-around-5
+  [state]
+  (setup-internal state))
 
 (comment
 
@@ -778,11 +758,6 @@
   (swap! lib/event-queue (fnil conj []) (kill-some 0.2))
 
 
-
-
-
-
-
   (do (defn explode-red-guys [s]
         ;; (def s @lib/the-state)
         (reduce
@@ -794,7 +769,7 @@
 
       (swap! lib/event-queue (fnil conj []) explode-red-guys))
 
-  (swap! lib/event-queue (fnil conj []) red-guys)
+
 
   (swap! lib/event-queue (fnil conj [])
          (fn [s]
@@ -813,100 +788,7 @@
 
   (map :on-update-map (filter :transduction-model (lib/entities @lib/the-state)))
 
-  (defn red-guys
-    [state]
-    (lib/append-ents
-     state
-     (mapcat identity
-             (repeatedly
-              20
-              (fn []
-                (let [angry? true
-                      ;; (zero? (fm.rand/flip 0.5))
-                      cart
-                      (cart/->cart
-                       {:body {:color (:navajo-white
-                                       defs/color-map)
-                               :hidden? true
-                               :scale 1
-                               :stroke-weight 0
-                               }
-                        :components
-                        [[:cart/entity :_
-                          {:f (fn []
-                                (lib/->entity
-                                 :circle
-                                 {:anchor-position [0 0]
-                                  :color (if angry?
-                                           (:red
-                                            defs/color-map)
-                                           defs/white)
-                                  :transform
-                                  (let [r 10]
-                                    (lib/->transform
-                                     [0 0]
-                                     r
-                                     r
-                                     1))
-                                  :red-guy? true
-                                  :update-colors? true}))}]
-                         ;;
-                         [:cart/motor :ma
-                          {:anchor :bottom-right
-                           :corner-r 5
-                           :hidden? true
-                           :on-update
-                           [(lib/->cap-activation)]
-                           :rotational-power 0.02}]
-                         [:cart/motor :mb
-                          {:anchor :bottom-left
-                           :corner-r 5
-                           :hidden? true
-                           :on-update
-                           [(lib/->cap-activation)]
-                           :rotational-power 0.02}]
-                         ;; ---------------
-                         [:cart/sensor :sa
-                          {:anchor :top-right
-                           :hidden? true
-                           :modality :rays}]
-                         [:cart/sensor :sb
-                          {:anchor :top-left
-                           :hidden? true
-                           :modality :rays}]
-                         ;; ----------------------------
-                         [:brain/neuron :arousal
-                          {:on-update
-                           [(lib/->baseline-arousal 0.2)]}]
-                         ;; ----------------------------
-                         [:brain/connection :_
-                          {:destination [:ref :ma]
-                           :f :excite
-                           :hidden? true
-                           :source [:ref :arousal]}]
-                         [:brain/connection :_
-                          {:destination [:ref :mb]
-                           :f :excite
-                           :hidden? true
-                           :source [:ref :arousal]}]
-                         ;; ----------------------------
-                         [:brain/connection :_
-                          {:destination [:ref :ma]
-                           :f (lib/->weighted
-                               (if angry? 1 -5))
-                           :hidden? true
-                           :source (if angry?
-                                     [:ref :sb]
-                                     [:ref :sa])}]
-                         [:brain/connection :_
-                          {:destination [:ref :mb]
-                           :f (lib/->weighted
-                               (if angry? 1 -5))
-                           :hidden? true
-                           :source (if angry?
-                                     [:ref :sa]
-                                     [:ref :sb])}]]})]
-                  cart)))))))
+  )
 
 (defonce vehicle-feel (atom (hd/seed)))
 
@@ -953,90 +835,87 @@
 (comment
   (item-memory/m-cleanup* feel->color-book (hdd/clj->vsa* :hit-pink) 0.5))
 
-(defn vehicle-feel->color [hv]
-
-  )
+(defn vehicle-feel->color [hv])
 
 (defn vehicle-1
   []
   (let [cart
-        (cart/->cart
-         {:body {:color (:navajo-white defs/color-map)
-                 :scale 0.5
-                 :stroke-weight 0
-                 :vehicle-feel-color? true}
-          :components
-          [[:cart/motor :ma
-            {:anchor :bottom-right
-             :corner-r 5
-             :hidden? true
-             :on-update [(lib/->cap-activation)]
-             :rotational-power 0.02}]
-           [:cart/motor :mb
-            {:anchor :bottom-left
-             :corner-r 5
-             :hidden? true
-             :on-update [(lib/->cap-activation)]
-             :rotational-power 0.02}]
-           ;; ---------------
-           [:cart/sensor :sa
-            {:anchor :top-right :modality :rays}]
-           [:cart/sensor :sb
-            {:anchor :top-left :modality :rays}]
-           ;; ----------------------------
-
-           [:brain/neuron :arousal
-            {:on-update [(lib/->baseline-arousal 0)]}]
-
-           ;; ----------------------------
-           [:brain/connection :_
-            {:destination [:ref :ma]
-             :f :excite
-             :hidden? true
-             :source [:ref :arousal]}]
-           [:brain/connection :_
-            {:destination [:ref :mb]
-             :f :excite
-             :hidden? true
-             :source [:ref :arousal]}]
-           ;; ----------------------------
-           ;; [:brain/connection :_
-           ;;  {:decussates? false
-           ;;   :destination [:ref :ma]
-           ;;   :f lib/excite
-           ;;   :hidden? true
-           ;;   :source [:ref :sa]}]
-           ;; [:brain/connection :_
-           ;;  {:decussates? false
-           ;;   :destination [:ref :mb]
-           ;;   :f lib/excite
-           ;;   :hidden? true
-           ;;   :source [:ref :sb]}]
-           ;; ----------------------------
-           [:brain/connection :_
-            {:decussates? true
-             :destination [:ref :ma]
-             :f lib/excite
-             :hidden? true
-             :on-update-map
-             {:gain (fn [e s k]
-                      (assoc-in e
-                                [:transduction-model :gain]
-                                #(* 2 %)))}
-             :source [:ref :sb]}]
-           [:brain/connection :_
-            {:decussates? true
-             :destination [:ref :mb]
-             :f lib/excite
-             :hidden? true
-             :on-update-map
-             {:gain (fn [e s k]
-                      (assoc-in e
-                                [:transduction-model :gain]
-                                #(* 2 %)))}
-             :source [:ref :sa]}]
-           ;; ----------------------------
-           ]})]
+          (cart/->cart
+           {:body
+            {:color (:navajo-white defs/color-map)
+             :scale 0.5
+             :stroke-weight 0
+             :vehicle-feel-color? true}
+            :components
+            [[:cart/motor :ma
+              {:anchor :bottom-right
+               :corner-r 5
+               :hidden? true
+               :on-update [(lib/->cap-activation)]
+               :rotational-power 0.02}]
+             [:cart/motor :mb
+              {:anchor :bottom-left
+               :corner-r 5
+               :hidden? true
+               :on-update [(lib/->cap-activation)]
+               :rotational-power 0.02}]
+             ;; ---------------
+             [:cart/sensor :sa
+              {:anchor :top-right :modality :rays}]
+             [:cart/sensor :sb
+              {:anchor :top-left :modality :rays}]
+             ;; ----------------------------
+             [:brain/neuron :arousal
+              {:on-update [(lib/->baseline-arousal 0)]}]
+             ;; ----------------------------
+             [:brain/connection :_
+              {:destination [:ref :ma]
+               :f :excite
+               :hidden? true
+               :source [:ref :arousal]}]
+             [:brain/connection :_
+              {:destination [:ref :mb]
+               :f :excite
+               :hidden? true
+               :source [:ref :arousal]}]
+             ;; ----------------------------
+             [:brain/connection :_
+              {:decussates? false
+               :destination [:ref :ma]
+               :f :excite
+               :hidden? true
+               :source [:ref :sa]}]
+             [:brain/connection :_
+              {:decussates? false
+               :destination [:ref :mb]
+               :f :excite
+               :hidden? true
+               :source [:ref :sb]}]
+             ;; ----------------------------
+             [:brain/connection :_
+              {:decussates? true
+               :destination [:ref :ma]
+               :f :excite
+               :hidden? true
+               :on-update-map
+               {:gain (fn [e s k]
+                        (assoc-in e
+                                  [:transduction-model :gain]
+                                  #(* 2 %)))}
+               :source [:ref :sb]}]
+             [:brain/connection :_
+              {:decussates? true
+               :destination [:ref :mb]
+               :f :excite
+               :hidden? true
+               :on-update-map
+               {:gain (fn [e s k]
+                        (assoc-in e
+                                  [:transduction-model :gain]
+                                  #(* 2 %)))}
+               :source [:ref :sa]}]
+             ;; ----------------------------
+             ]})]
     cart))
 
 (defn append-vehicles
@@ -1053,39 +932,46 @@
         (lib/append-ents entities)
         (+vehicle-field entities))))
 
-(do (sketch {:background-color 0
-             :height nil
-             :time-speed 3
-             :v :getting-around-5
-             :width nil})
-    (swap! lib/event-queue (fnil conj []) add-ray-source)
+;; ----------------------------------------------------
+(do
+  (sketch {:background-color 0
+           :height nil
+           :time-speed 3
+           :v :getting-around-5
+           :width nil})
+
+  ;;
+  ;;
+  (swap! lib/event-queue (fnil conj []) add-ray-source)
+  ;;
+
+  (swap! lib/event-queue (fnil conj []) vehicles)
+
+  ;; (swap! lib/event-queue (fnil conj []) append-vehicles)
+
+  ;;
+  ;; (swap! lib/event-queue (fnil conj []) red-guys)
 
 
-    (swap! lib/event-queue (fnil conj []) vehicles)
-
-    ;; (swap! lib/event-queue (fnil conj []) append-vehicles)
-
-
-
-    #_(swap! lib/event-queue (fnil conj [])
-             (fn [s]
-               (assoc-in s
-                         [:on-update-map :update-colors]
-                         (lib/every-n-seconds
-                          (let [last-temp (atom 0)]
-                            (fn [] (lib/normal-distr 0.1 0.1)))
-                          (fn [s _]
-                            (let [color (defs/color-map
-                                          (if (zero? (fm.rand/flip 0.5))
-                                            :black
-                                            (rand-nth [:cyan :white])))]
-                              (lib/update-ents
-                               s
-                               (fn [ent]
-                                 (if-not (:body? ent)
-                                   ent
-                                   (assoc ent :color color)))))))))))
-
+  #_(swap! lib/event-queue (fnil conj [])
+           (fn [s]
+             (assoc-in s
+                       [:on-update-map :update-colors]
+                       (lib/every-n-seconds
+                        (let [last-temp (atom 0)]
+                          (fn [] (lib/normal-distr 0.1 0.1)))
+                        (fn [s _]
+                          (let [color (defs/color-map
+                                        (if (zero? (fm.rand/flip 0.5))
+                                          :black
+                                          (rand-nth [:cyan :white])))]
+                            (lib/update-ents
+                             s
+                             (fn [ent]
+                               (if-not (:body? ent)
+                                 ent
+                                 (assoc ent :color color)))))))))))
+;; ----------------------------------------------------
 
 
 

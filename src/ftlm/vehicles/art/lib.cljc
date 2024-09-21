@@ -55,7 +55,7 @@
   {:pos pos :width width :height height :scale scale :rotation 0})
 
 (def entities (comp vals :eid->entity))
-(def entities-by-id :eid->entity)
+(def entities-by-id #(:eid->entity % {}))
 
 (defn destroy [state eid]
   (update state :eid->entity dissoc eid))
@@ -163,7 +163,9 @@
 
 (defn set-timer
   [seconds]
-  (let [id (random-uuid)]
+  (let [seconds (cond (number? seconds) seconds
+                      :else (seconds))
+        id (random-uuid)]
     (swap! timers assoc id seconds)
     id))
 
@@ -285,16 +287,20 @@
 (def kill-entities (comp kill-entities-1 kill-components))
 
 (defn update-conn-line
-  [{:as entity :keys [connection-line? entity-b entity-a]} state]
+  [{:as entity :keys [connection-line? entity-b entity-a]}
+   state]
   (if-not connection-line?
     entity
     (let [e-lut (entities-by-id state)
           dest (e-lut entity-b)
           source (e-lut entity-a)]
-      (-> entity
-          (assoc-in [:transform :pos] (position source))
-          (assoc :end-pos (position dest))
-          (assoc :color (:color source))))))
+      (if-not (and (validate-entity dest)
+                   (validate-entity source))
+        (assoc entity :kill? true)
+        (-> entity
+            (assoc-in [:transform :pos] (position source))
+            (assoc :end-pos (position dest))
+            (assoc :color (:color source)))))))
 
 (def draw-color (comp #(q/fill %) ->hsb))
 
@@ -425,18 +431,37 @@
    :bottom-right -1
    :bottom-middle -1})
 
+(defn +temperature-sensitivity
+  [e]
+  (-> e
+      (assoc :collides? true)
+      (assoc-in [:on-collide-map :temperature-sensor]
+                (fn [e other state k]
+                  (when (and (:temperature-bubble? other)
+                             (= (:hot-or-cold e)
+                                (:hot-or-cold other)))
+                    ;; ------------------------------------------------
+                    (update e
+                            :activation
+                            (fnil + 0)
+                            (:temp other 0)))))))
+
+
 (defn ->sensor
   [{:as opts :keys [modality scale]}]
   (let [scale (cond scale scale
                     (= modality :smell) 0.8
                     :else 1)]
-    (merge (->entity :circle)
-           {:activation-shine true
-            :color (q/color 40 96 255 255)
-            :particle? true
-            :sensor? true
-            :transform (->transform [0 0] 20 20 scale)}
-           opts)))
+    (cond-> (merge (->entity :circle)
+                   {:activation-shine true
+                    :color (q/color 40 96 255 255)
+                    :particle? true
+                    :sensor? true
+                    :transform
+                    (->transform [0 0] 20 20 scale)}
+                   opts)
+      (= modality :temperature)
+      (+temperature-sensitivity))))
 
 (defn ->motor
   [{:as opts :keys [scale width height]}]
@@ -449,7 +474,7 @@
             :color (q/color 40 96 255 255)
             :motor? true
             :transform
-              (->transform [0 0] width height scale)}
+            (->transform [0 0] width height scale)}
            opts)))
 
 (defn ->neuron
@@ -618,19 +643,22 @@
   [entity state]
   (if-not (:body? entity)
     entity
-    (let [effectors (sequence
-                     (comp
-                      (map (entities-by-id state))
-                      (filter :motor?))
-                     (:components entity))]
-      (-> entity
-          (update :acceleration
-                  (fnil + 0)
-                  (reduce + (map #(:activation % 0) effectors)))
-          (assoc :angular-acceleration (transduce
-                                        (map effector->angular-acceleration)
-                                        +
-                                        effectors))))))
+    (do
+      (let [effectors (sequence (comp
+                                   (map (entities-by-id state))
+                                   (filter :motor?))
+                                  (:components entity))]
+          (-> entity
+              (update :acceleration
+                      (fnil + 0)
+                      (reduce +
+                        (map #(:activation % 0) effectors)))
+              (assoc :angular-acceleration
+                       (transduce
+                         (map
+                           effector->angular-acceleration)
+                         +
+                         effectors)))))))
 
 (defn update-rotation
   [entity]
@@ -644,7 +672,6 @@
 
 (defn move-dragged
   [entity]
-
   (if (:dragged? entity)
     (assoc-in entity [:transform :pos] [(q/mouse-x) (q/mouse-y)])
     entity))
@@ -756,6 +783,16 @@
           activation (* sign (- (abs activation) 0.2) 0.8)]
       (assoc entity :activation activation))
     entity))
+
+(comment
+  (let [activation 14
+        sign (signum activation)
+        activation (* sign (- (abs activation) 0.2) 0.8)]
+    activation)
+  (let [activation 11.040000000000001
+        sign (signum activation)
+        activation (* sign (- (abs activation) 0.2) 0.8)]
+    activation))
 
 (defn ->transdution-model
   ([a b] (->transdution-model a b identity))
@@ -881,35 +918,37 @@
         (-> env :odor-sources))]
       (assoc sensor :activation (min new-activation 14))))
 
-(defmethod update-sensor :temperature
+#_(defmethod update-sensor :temperature
   [sensor env]
   (let [new-activation
-          (transduce
-            (comp (filter (comp #{(:hot-or-cold sensor)}
-                                :hot-or-cold))
-                  (filter (fn [{:as bubble :keys [d]}]
-                            (point-inside-circle?
-                              (position sensor)
-                              (position bubble)
-                              d)))
-                  (map :temp))
-            +
-            (-> env
-                :temperature-bubbles))]
+        (transduce
+         (comp (filter (comp #{(:hot-or-cold sensor)}
+                             :hot-or-cold))
+               (filter (fn [{:as bubble :keys [d]}]
+                         (point-inside-circle?
+                          (position sensor)
+                          (position bubble)
+                          d)))
+               (map :temp))
+         +
+         (-> env
+             :temperature-bubbles))]
     (assoc sensor :activation (min new-activation 14))))
+
+(defmethod update-sensor :temperature [sensor env] sensor)
 
 (defn ->circular-shine-1
   [e]
   (let [pos (position e)]
     (assoc (->entity :circle)
-      :transform (assoc (->transform pos 20 20 1)
-                   :absolute-scale 1)
-      :lifetime 1
-      :color (defs/color-map
-               (rand-nth [:hit-pink :red :heliotrope
-                          :green-yellow :horizon :magenta
-                          :purple :sweet-pink :cyan]))
-      :z-index -4)))
+           :transform (assoc (->transform pos 20 20 1)
+                             :absolute-scale 1)
+           :lifetime 1
+           :color (defs/color-map
+                    (rand-nth [:hit-pink :red :heliotrope
+                               :green-yellow :horizon :magenta
+                               :purple :sweet-pink :cyan]))
+           :z-index -4)))
 
 (defn ->circular-shine
   ([freq speed]
@@ -924,24 +963,21 @@
        (when (<= (:next @s) 0)
          (swap! s assoc :next (normal-distr freq freq))
          (let [c (->hsb (:color entity))
-               se
-               (->
-                (assoc
-                 (make-shine entity
-                             #_(q/color
-                                (q/hue c)
-                                (q/saturation c)
-                                (q/brightness c)
-                                100))
-                 :on-update [(->grow speed)])
-                (update
-                 :lifetime
-                 (fn [l]
-                   (or l
-                       (normal-distr lifetime
-                                     (Math/sqrt
-                                      lifetime))))))
-               ]
+               se (-> (assoc (make-shine
+                               entity
+                               #_(q/color (q/hue c)
+                                          (q/saturation c)
+                                          (q/brightness c)
+                                          100))
+                               :on-update
+                             [(->grow speed)])
+                      (update :lifetime
+                              (fn [l]
+                                (or l
+                                    (normal-distr
+                                      lifetime
+                                      (Math/sqrt
+                                        lifetime))))))]
            {:updated-state (-> state
                                (update-in [:eid->entity
                                            (:id entity)
@@ -1122,10 +1158,6 @@
                                (:brownian-factor (controls))
                                0))))
 
-
-
-
-
 (defn ray-source-collision-burst
   [state]
   (let [sources (sequence (comp (filter :ray-source?)
@@ -1179,8 +1211,6 @@
                      cat)
                explode-them)))))
 
-
-
 (defn update-collision
   [state entity-source entity-target]
   (reduce (fn [s [k f]]
@@ -1202,21 +1232,56 @@
     (:on-collide-map ((entities-by-id state)
                        entity-target))))
 
+(defmulti radius :kind)
+
+(defmethod radius :default
+  [e]
+  (* (-> e
+         :transform
+         (:scale 0))
+     (min
+      (-> e
+          :transform
+          (:width 0))
+      (-> e
+          :transform
+          (:height 0)))))
+
+(defmethod radius :circle
+  [e]
+  (def e e)
+  (* (-> e
+         :transform
+         (:scale 0))
+     (/ (max (-> e
+                 :transform
+                 (:width 0))
+             (-> e
+                 :transform
+                 (:height 0)))
+        2)))
+
 (defn update-collisions
   [state]
+  (def state state)
   (let [ents (vec (filter :collides? (entities state)))]
-    (reduce
-     (fn [s [i j]]
-       (->
-        s
-        (update-collision (:id (ents i)) (:id (ents j)))
-        (update-collision (:id (ents j)) (:id (ents i)))))
-     state
-     (let [ ;; positions
-           positions (map position ents)
-           ;; todo hitbox
-           radii (repeat (count positions) 20)]
-       (collide/collisions positions radii)))))
+    ;; (let [ents (vec (filter :collides? (entities state)))]
+    ;;   (let [ ;; positions
+    ;;         positions (map position ents)
+    ;;         radii (map radius ents)]
+    ;;     (collide/collisions positions radii)))
+
+    (reduce (fn [s [i j]]
+              (-> s
+                  (update-collision (:id (ents i))
+                                    (:id (ents j)))
+                  (update-collision (:id (ents j))
+                                    (:id (ents i)))))
+            state
+            (let [ ;; positions
+                  positions (map position ents)
+                  radii (map radius ents)]
+              (collide/collisions positions radii)))))
 
 (defn update-update-functions-1
   [state]
@@ -1235,8 +1300,6 @@
 
 (defonce input (atom nil))
 (defonce output (atom nil))
-
-
 
 (defn update-update-functions-map-1
   [k]
@@ -1344,12 +1407,11 @@
 
 (defn env
   [state]
-  {:odor-sources
-   (filter :odor-source? (entities state))
-   :ray-sources
-   (filter :ray-source? (entities state))
-   :temperature-bubbles
-   (filter :temperature-bubble? (entities state))})
+  (let [ents (entities state)]
+    {:odor-sources (filter :odor-source? ents)
+     :ray-sources (filter :ray-source? ents)
+     :temperature-bubbles (filter :temperature-bubble?
+                            ents)}))
 
 (defn ->sub-circle
   [angle radius opts]
@@ -1369,8 +1431,6 @@
      (fn [idx _]
        (->sub-circle (* idx angle-step) radius (assoc opts :pos center)))
      (range count))))
-
-
 
 ;; ---------------------------------------------------
 ;; ---------------------------------------------------
@@ -1677,9 +1737,6 @@
    :end-pos (position entity-b)
    :entity-a (:id entity-a)
    :entity-b (:id entity-b)
-   ;; :on-update-map {:suicide-connection (->suicide-packt
-   ;;                                       #{(:id entity-b)
-   ;;                                         (:id entity-a)})}
    :transform (->transform (position entity-a) 1 1 1)})
 
 (defn ->connection-line

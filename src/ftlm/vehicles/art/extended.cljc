@@ -440,3 +440,22 @@
                                             20)))))))
                      (range count))))}
          :transform (lib/->transform pos 100 100 1)}))))
+
+(defn sine-wave-update
+  [x speed cycle-duration]
+  (let [fade-factor (-> (* (/ (q/millis) cycle-duration)
+                           q/TWO-PI)
+                        (Math/sin)
+                        (Math/abs))
+        wave-value (* fade-factor (+ x (* lib/*dt* speed)))]
+    wave-value))
+
+(defn sine-wave-machine
+  [speed cycle-duration]
+  (let [state (atom 0)]
+    (fn
+      ([deref?] @state)
+      ([]
+       (swap! state sine-wave-update
+         speed
+         cycle-duration)))))

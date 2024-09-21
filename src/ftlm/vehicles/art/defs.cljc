@@ -26,7 +26,7 @@
    :red {:h 0 :s 255 :v 100}
    :sweet-pink {:h 356 :s 39 :v 100}
    :very-blue {:h 210 :s 255 :v 100}
-   :white {:h 360 :s 100 :v 100}
+   :white [0 0 255]
    :woodsmoke {:h 240 :s 26 :v 9}
    :yellow {:h 60 :s 100 :v 100}})
 
