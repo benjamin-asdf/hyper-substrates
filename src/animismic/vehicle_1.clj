@@ -638,70 +638,86 @@
                  hot-or-cold :hot
                  temp 1]
              (->
-              (assoc
-               (lib/->entity :circle)
-               :transform (lib/->transform pos d d 5)
-               :base-scale 5
-               :no-stroke? true
-               :color (:hit-pink defs/color-map)
-               :temperature-bubble? true
-               :kinetic-energy (lib/normal-distr 0.5 0.1)
-               :hot-or-cold hot-or-cold
-               :lifetime (lib/normal-distr 2 (Math/sqrt 2))
-               :collides? true
-               :on-collide-map
-               {:flip-color
-                (lib/cooldown
-                 (fn [] (lib/normal-distr 0.2 0.1))
-                 (let [counter (atom 1)]
-                   (fn [e other state k]
-                     (if-not (:body? other)
-                       e
-                       (do
-                         (swap! counter inc)
-                         (-> e
-                             ;; (assoc-in [:transform :scale] (* 1.08 @counter))
-                             (assoc-in [:transform :base-scale] (* 1.08 @counter))
-                             (assoc :color
-                                    (defs/color-map
-                                      ([
-                                        ;; :deep-pink
-                                        :black
-                                        :cyan :hit-pink]
-                                       (mod @counter
-                                            2))))))))))}
-               :d d
-               :temp temp
-               :z-index -10
-               :particle? true
-               :draggable? false)
-              (lib/live
-               [:scale-it
-                (let [sin (elib/sine-wave-machine 10 2000)]
-                  (fn [e s k]
-                    (let [v (sin)
-                          base-scale (:base-scale e)]
-                      (if (<= 0.9 v)
-                        (assoc e :kill? true)
-                        (-> e
-                            (assoc-in
-                             [:transform :scale]
-                             (+ base-scale (sin))))))
-                    )
-                  ;; (lib/live e
-                  ;;           [:flash
-                  ;;            (fn [e s k]
-                  ;;              (if (lib/rang? end-timer)
-                  ;;                (-> e
-                  ;;                    (update :on-update-map dissoc k)
-                  ;;                    kont)
-                  ;;                ;; (update e :color lib/with-alpha
-                  ;;                ;; (sin))
-                  ;;                (assoc e
-                  ;;                       :color (q/lerp-color
-                  ;;                               (lib/->hsb base-color)
-                  ;;                               (lib/->hsb high-color)
-                  ;;                               (sin)))))])
+               (assoc
+                (lib/->entity :circle) :transform
+                (lib/->transform pos d d 5) :base-scale
+                5 :no-stroke?
+                true :color
+                (:hit-pink defs/color-map)
+                :temperature-bubble?
+                true :kinetic-energy
+                (lib/normal-distr 0.5 0.1) :hot-or-cold
+                hot-or-cold
+                :lifetime
+                (lib/normal-distr 2 (Math/sqrt 2))
+                :collides?
+                true :on-collide-map
+                {:flip-color
+                 (lib/cooldown
+                  (fn [] (lib/normal-distr 0.2 0.1))
+                  (let [counter (atom 1)]
+                    (fn [e other state k]
+                      (if-not (:body? other)
+                        e
+                        (do (swap! counter inc)
+                            (-> e
+                                ;; (assoc-in
+                                ;; [:transform
+                                ;; :scale] (* 1.08
+                                ;; @counter))
+                                (assoc-in [:transform
+                                           :base-scale]
+                                          (* 1.08
+                                             @counter))
+                                (assoc
+                                 :color
+                                 (defs/color-map
+                                   ([ ;; :deep-pink
+                                     :black :cyan
+                                     :hit-pink]
+                                    (mod @counter
+                                         2))))))))))}
+                :d
+                d :temp
+                temp :z-index
+                -10 :particle?
+                true :draggable?
+                false)
+               (lib/live
+                 [:scale-it
+                  (let [sin (elib/sine-wave-machine 10
+                                                    2000)]
+                    (fn [e s k]
+                      (let [v (sin)
+                            base-scale (:base-scale e)]
+                        (if (<= 0.9 v)
+                          (assoc e :kill? true)
+                          (-> e
+                              (assoc-in [:transform :scale]
+                                        (+ base-scale
+                                           (sin)))))))
+                    ;; (lib/live e
+                    ;;           [:flash
+                    ;;            (fn [e s k]
+                    ;;              (if (lib/rang?
+                    ;;              end-timer)
+                    ;;                (-> e
+                    ;;                    (update
+                    ;;                    :on-update-map
+                    ;;                    dissoc k)
+                    ;;                    kont)
+                    ;;                ;; (update e
+                    ;;                :color
+                    ;;                lib/with-alpha
+                    ;;                ;; (sin))
+                    ;;                (assoc e
+                    ;;                       :color
+                    ;;                       (q/lerp-color
+                    ;;                               (lib/->hsb
+                    ;;                               base-color)
+                    ;;                               (lib/->hsb
+                    ;;                               high-color)
+                    ;;                               (sin)))))])
                   )])))]
      e)))
 
@@ -758,14 +774,13 @@
                                       (lib/entities s)))]
                     (let [a e
                           b other]
-                      (merge
-                       (lib/->connection-line a b)
-                       {:color (lib/->hsb
-                                (:hit-pink
-                                 defs/color-map))
-                        :lifetime (lib/normal-distr
-                                   2
-                                   1)}))))})))])))
+                      (merge (lib/->connection-line a b)
+                             {:color (lib/->hsb
+                                       (:hit-pink
+                                         defs/color-map))
+                              :lifetime (lib/normal-distr
+                                          2
+                                          1)}))))})))])))
 
 
 ;; ----------------------------------------------------
