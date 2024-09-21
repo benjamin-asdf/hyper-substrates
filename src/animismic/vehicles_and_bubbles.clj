@@ -296,128 +296,178 @@
   (lib/append-ents state [(->ray-source)]))
 
 
+(defonce aggression (atom 0))
+
 (defn vehicle-1
   []
   (let [cart
-          (cart/->cart
-            {:body {:color (:navajo-white defs/color-map)
-                    :scale 0.5
-                    :stroke-weight 0
-                    :vehicle-feel-color? true}
-             :components
-               [[:cart/motor :ma
-                 {:anchor :bottom-right
-                  :corner-r 5
-                  :hidden? true
-                  :on-update [(lib/->cap-activation)]
-                  :rotational-power 0.02}]
-                [:cart/motor :mb
-                 {:anchor :bottom-left
-                  :corner-r 5
-                  :hidden? true
-                  :on-update [(lib/->cap-activation)]
-                  :rotational-power 0.02}]
-                ;; ---------------
-                [:cart/sensor :sa
-                 {:anchor :top-right :modality :rays}]
-                [:cart/sensor :sb
-                 {:anchor :top-left :modality :rays}]
-                ;; ----------------
-                ;; Temperature sensor
-                [:cart/sensor :hot-temperature-sensor
-                 {:anchor :middle-middle
-                  :hot-or-cold :hot
-                  :modality :temperature}]
-                ;; ----------------------------
-                [:brain/neuron :arousal
-                 {:arousal-neuron? true
-                  :on-update [(lib/->baseline-arousal 0.2)]
-                  }]
-                ;; ----------------------------
-                [:brain/connection :_
-                 {:destination [:ref :ma]
-                  :f :excite
-                  :hidden? true
-                  :on-update-map
-                  {:gain
-                   (lib/every-n-seconds
-                    (fn [] (lib/normal-distr 1 1))
-                    (fn [e s k]
-                      (assoc-in
-                       e [:transduction-model :gain]
-                       (* 10 (rand)))))}
-                  :source [:ref :arousal]}]
-                [:brain/connection :_
-                 {:destination [:ref :mb]
-                  :f :excite
-                  :hidden? true
+        (cart/->cart
+         {:body {:color (:navajo-white defs/color-map)
+                 :scale 0.5
+                 :stroke-weight 0
+                 :on-update-map
+                 {:color-aggression
+                  (fn [e s k]
+                    (assoc
+                     e :color
+                     (defs/color-map
+                       (if (< 0.5 @aggression)
+                         :deep-pink
+                         :mint
 
-                  :on-update-map
-                  {:gain
-                   (lib/every-n-seconds
-                    (fn [] (lib/normal-distr 1 1))
-                    (fn [e s k]
-                      (assoc-in e
-                                [:transduction-model :gain]
-                                (* 10 (rand)))))}
+                         ))))}
+                 :vehicle-feel-color? true}
+          :components
+          [[:cart/motor :ma
+            {:anchor :bottom-right
+             :corner-r 5
+             :hidden? true
+             :on-update [(lib/->cap-activation)]
+             :rotational-power 0.02}]
+           [:cart/motor :mb
+            {:anchor :bottom-left
+             :corner-r 5
+             :hidden? true
+             :on-update [(lib/->cap-activation)]
+             :rotational-power 0.02}]
+           ;; ---------------
+           [:cart/sensor :sa
+            {:anchor :top-right :modality :rays}]
+           [:cart/sensor :sb
+            {:anchor :top-left :modality :rays}]
+           ;; ----------------
+           ;; Temperature sensor
+           [:cart/sensor :hot-temperature-sensor
+            {:anchor :middle-middle
+             :hot-or-cold :hot
+             :modality :temperature}]
+           ;; ----------------------------
+           [:brain/neuron :arousal
+            {:arousal-neuron? true
+             :on-update [(lib/->baseline-arousal 0.2)]
+             }]
+           ;; ----------------------------
+           [:brain/connection :_
+            {:destination [:ref :ma]
+             :f :excite
+             :hidden? true
+             :on-update-map
+             {:gain
+              (lib/every-n-seconds
+               (fn [] (lib/normal-distr 1 1))
+               (fn [e s k]
+                 (assoc-in
+                  e [:transduction-model :gain]
+                  (* 10 (rand)))))}
+             :source [:ref :arousal]}]
+           [:brain/connection :_
+            {:destination [:ref :mb]
+             :f :excite
+             :hidden? true
 
-                  :source [:ref :arousal]}]
-                ;; ----------------------------
-                [:brain/connection :_
-                 {:decussates? false
-                  :destination [:ref :ma]
-                  ;; :f :excite
+             :on-update-map
+             {:gain
+              (lib/every-n-seconds
+               (fn [] (lib/normal-distr 1 1))
+               (fn [e s k]
+                 (assoc-in e
+                           [:transduction-model :gain]
+                           (* 10 (rand)))))}
 
-                  :f (lib/->weighted -10)
+             :source [:ref :arousal]}]
+           ;; ----------------------------
+           [:brain/connection :_
+            {:decussates? false
+             :destination [:ref :ma]
+             :f :excite
 
-                  :hidden? true
-                  :source [:ref :sa]}]
-                [:brain/connection :_
-                 {:decussates? false
-                  :destination [:ref :mb]
 
-                  :f (lib/->weighted -10)
-                  ;; :f :excite
-                  :hidden? true
-                  :source [:ref :sb]}]
-                ;; ----------------------------
-                [:brain/connection :_
-                 {:decussates? false
-                  :destination [:ref :mb]
-                  :f :excite
-                  :hidden? true
-                  :source [:ref :hot-temperature-sensor]}]
-                [:brain/connection :_
-                 {:decussates? false
-                  :destination [:ref :ma]
-                  :f :excite
-                  :hidden? true
-                  :source [:ref :hot-temperature-sensor]}]
-                ;; ----------------------------
-                [:brain/connection :_
-                 {:decussates? true
-                  :destination [:ref :ma]
-                  :f :excite
-                  :hidden? true
-                  :on-update-map
-                    {:gain (fn [e s k]
-                             (assoc-in e
-                               [:transduction-model :gain]
-                               #(* 2 %)))}
-                  :source [:ref :sb]}]
-                [:brain/connection :_
-                 {:decussates? true
-                  :destination [:ref :mb]
-                  :f :excite
-                  :hidden? true
-                  :on-update-map
-                    {:gain (fn [e s k]
-                             (assoc-in e
-                               [:transduction-model :gain]
-                               #(* 2 %)))}
-                  :source [:ref :sa]}]
-                ;; ----------------------------
-               ]})]
+             ;; :f (lib/->weighted -10)
+
+             :on-update-map
+             {:gain
+              (lib/every-n-seconds
+               (fn [] (lib/normal-distr 1 1))
+               (fn [e s k]
+                 (assoc-in
+                  e [:transduction-model :gain]
+                  (* -10 (- 1 @aggression)))))}
+
+
+             :hidden? true
+             :source [:ref :sa]}]
+           [:brain/connection :_
+            {:decussates? false
+             :destination [:ref :mb]
+
+             ;; :f (lib/->weighted -10)
+             :f :excite
+
+
+             :on-update-map
+             {:gain
+              (lib/every-n-seconds
+               (fn [] (lib/normal-distr 1 1))
+               (fn [e s k]
+                 (assoc-in
+                  e [:transduction-model :gain]
+                  (* -10 (- 1 @aggression)))))}
+
+             :hidden? true
+             :source [:ref :sb]}]
+           ;; ----------------------------
+           [:brain/connection :_
+            {:decussates? false
+             :destination [:ref :mb]
+             :f :excite
+             :hidden? true
+             :source [:ref :hot-temperature-sensor]}]
+           [:brain/connection :_
+            {:decussates? false
+             :destination [:ref :ma]
+             :f :excite
+             :hidden? true
+             :source [:ref :hot-temperature-sensor]}
+
+
+
+            ]
+           ;; ----------------------------
+           [:brain/connection :_
+            {:decussates? true
+             :destination [:ref :ma]
+             :f :excite
+             :hidden? true
+             :on-update-map
+             {:gain
+              (lib/every-n-seconds
+               (fn [] (lib/normal-distr 1 1))
+               (fn [e s k]
+                 (assoc-in
+                  e [:transduction-model :gain]
+                  (* 10 @aggression))))}
+
+
+
+             :source [:ref :sb]}]
+           [:brain/connection :_
+            {:decussates? true
+             :destination [:ref :mb]
+             :f :excite
+             :hidden? true
+
+             :on-update-map
+             {:gain
+              (lib/every-n-seconds
+               (fn [] (lib/normal-distr 1 1))
+               (fn [e s k]
+                 (assoc-in
+                  e [:transduction-model :gain]
+                  (* 10 @aggression))))}
+
+             :source [:ref :sa]}]
+           ;; ----------------------------
+           ]})]
     cart))
 
 (defn ->vehicle-field-1
@@ -638,9 +688,9 @@
      (->
        (merge
          (lib/->entity :circle)
-         {
-          :collides? true
-          :color ((rand-nth [:deep-pink :cyan]) defs/color-map)
+         {:collides? true
+          :color ((rand-nth [:deep-pink :cyan])
+                  defs/color-map)
           :d d
           :draggable? false
           :hot-or-cold hot-or-cold
@@ -657,7 +707,8 @@
                 e
                 (do
                   (swap! counter inc)
-                  (if (and (= (mod @counter 2) 0) (zero? (fm.rand/flip 0.5)))
+                  (if (and (= (mod @counter 2) 0)
+                           (zero? (fm.rand/flip 0.5)))
                     {:updated-state
                      (cond->
                          (update-in
@@ -665,30 +716,40 @@
                           [:eid->entity (:id e)]
                           (fn [e]
                             (-> e
-                                (assoc :lifetime 0.2)
-                                (lib/live [:grow (lib/->grow 2)])
-                                (update :on-update-map dissoc :scale-it))))
+                                (assoc :lifetime 0.1)
+                                (lib/live [:grow
+                                           (lib/->grow
+                                            1)])
+                                (update :on-update-map
+                                        dissoc
+                                        :scale-it))))
                          (zero? (fm.rand/flip 0.75))
                          (lib/+explosion e))}
                     (-> e
-                        (assoc :lifetime (lib/normal-distr 10 (Math/sqrt 2)))
-                        (assoc :color (defs/color-map ([:deep-pink :cyan]
-                                                       (mod @counter 2))))))))))}
+                        (assoc :lifetime
+                               (lib/normal-distr
+                                10
+                                (Math/sqrt 2)))
+                        (assoc :color
+                               (defs/color-map
+                                 ([:deep-pink :cyan]
+                                  (mod @counter
+                                       2))))))))))}
           :particle? true
           :temp temp
           :temperature-bubble? true
+          ;; this flash from to big scale looks cool
           :transform (lib/->transform pos d d 1)
           :z-index -10})
-       (lib/live
-        [:scale-it
-         (let [sin (elib/sine-wave-machine 5 2000)]
-           (fn [e s k]
-             (let [v (sin)]
-               (-> e
-                   (assoc-in
-                    [:transform :scale]
-                    (+ (* 1.5 @counter)
-                       (* 0.2 (sin))))))))])))))
+       (lib/live [:scale-it
+                  (let [sin (elib/sine-wave-machine 5 2000)]
+                    (fn [e s k]
+                      (let [v (sin)]
+                        (-> e
+                            (assoc-in
+                              [:transform :scale]
+                              (+ (* 0.2 (* @counter @counter))
+                                 (* 0.2 (sin))))))))])))))
 
 (defn temperature-bubble-spawner
   []
@@ -782,6 +843,16 @@
      (lib/append-ents
       s
       (repeatedly 2 temperature-bubble-spawner))))
+
+  (let [v (elib/sine-wave-machine 1 10000)]
+    (lib/state-on-update!
+     (fn [s k]
+       (reset! aggression (v))
+       s
+       )))
+
+
+
 
 
 

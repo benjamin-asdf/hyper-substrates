@@ -253,8 +253,12 @@
 
 (def update-lifetime (comp kill-from-lifetime update-lifetime-1))
 
-(defn live [e op]
-  (update e :on-update-map (fnil conj {}) op))
+(defn live
+  [e op]
+  (let [op (if (vector? op) op [(random-uuid) op])]
+    (update e :on-update-map (fnil conj {}) op)))
+
+(defn +state-on-update [state op] (live state op))
 
 (defn alive? [e] (and (:entity? e) (not (:kill? e))))
 
@@ -1784,3 +1788,7 @@
                    (if-not (zero? (fm.rand/flip chance))
                      (assoc e :kill? true)
                      e)))))
+
+(defn state-on-update!
+  [op]
+  (swap! event-queue (fnil conj []) (fn [s] (+state-on-update s op))))
