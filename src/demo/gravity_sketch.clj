@@ -8,9 +8,8 @@
    [quil.core :as q]
    [quil.middleware :as m]))
 
-(do
-  (require-python '[torch :as torch])
-  (require-python '[builtins :as builtins]))
+(do (require-python '[torch :as torch])
+    (require-python '[builtins :as builtins]))
 
 (defn setup-objects
   [n]
@@ -34,7 +33,7 @@
 (defn setup
   []
   (q/frame-rate 60)
-  (let [objects (setup-objects 1500)]
+  (let [objects (setup-objects 500)]
     {:masses (torch/tensor (vec (map :mass objects))
                            :device
                            *torch-device*)
@@ -65,16 +64,15 @@
 (defn draw
   [state]
   (q/background 0)
-  (q/fill 255)
-  (time (doall (map (fn [obj [x y]]
-                      (q/ellipse x
-                                 y
-                                 (* 2 (:radius obj))
-                                 (* 2 (:radius obj)))
-                      ;; (q/with-fill [256 0 0])
-                    )
-                 (:objects state)
-                 (:positions-jvm state)))))
+  (let [objects (:objects state)]
+    (doall (map (fn [obj [x y]]
+                  (q/fill (:color obj))
+                  (q/ellipse x
+                             y
+                             (* 2 (:radius obj))
+                             (* 2 (:radius obj))))
+             objects
+             (:positions-jvm state)))))
 
 (q/defsketch gravity-sim
   :title "Multi-object Gravity Simulation"

@@ -106,18 +106,18 @@
   :features [:keep-on-top]
   :middleware [m/fun-mode])
 
+
+
 (comment
   (force-direction [0 0] [100 100])
   (force-direction [0 0] [100 100])
   (distance [0.7071067811865475 0.7071067811865475] [0 0])
   (calculate-forces)
 
-  (map
-   (fn [forces]
-    )
-   (calculate-forces-1 [{:mass 100 :position [300 300]}
-                        {:mass 200 :position [0 0]}
-                        {:mass 100 :position [0 50]}]))
+  (map (fn [forces])
+       (calculate-forces-1 [{:mass 100 :position [300 300]}
+                            {:mass 200 :position [0 0]}
+                            {:mass 100 :position [0 50]}]))
 
 
   ([-8.600470486671992E-12 -8.040466559358933E-12]
