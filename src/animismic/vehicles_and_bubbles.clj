@@ -158,14 +158,14 @@
                                   (+ x (* lib/*dt* speed)))]
                 wave-value)))]
     (assoc e
-           :intensity (+ 10 (* 20 (:intensity-factor e))))))
+           :intensity (+ 5 (* 10 (:intensity-factor e))))))
 
 
 (defn ->ray-source
   ([] (->ray-source (lib/rand-on-canvas-gauss 0.2)))
   ([pos]
    (let [[e] (lib/->ray-source
-               {:color (:mint defs/color-map)
+               {:color (:deep-pink defs/color-map)
                 :intensity 30
                 :intensity-factor 1
                 :kinetic-energy 1
@@ -185,7 +185,6 @@
                      s
                      (fn [ent]
                        (lib/orient-towards ent (lib/position e))))})}
-
                 :pos pos
                 :scale 0.75
                 :shinyness nil})]
@@ -229,7 +228,7 @@
                         (assoc e
                           :kinetic-energy
                             (lib/normal-distr 5 2))))])
-       (lib/live
+       #_(lib/live
          [:circular-shine-radio
           (lib/every-n-seconds
             (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
@@ -256,8 +255,8 @@
                         (assoc :lifetime (lib/normal-distr
                                            3
                                            (Math/sqrt
-                                             3)))))])}))])
-       #_(lib/live
+                                            3)))))])}))])
+       (lib/live
            [:circular-shine-field
             (lib/every-n-seconds
               (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
@@ -269,32 +268,23 @@
                         (-> e
                             (assoc :color
                                      ((rand-nth
-                                        [:black :hit-pink
-                                         :cyan :heliotrope])
+                                       [:black
+                                        :black
+                                        ;; :hit-pink
+                                        ;; :cyan
+                                        ;; :heliotrope
+                                        :mint
+                                        ])
                                        defs/color-map))
-                            ;; (assoc :stroke-weight
-                            ;; 3)
-                            ;; (assoc :stroke (:color
-                            ;; ray))
                             (assoc
                               :on-update
-                                [(lib/->grow
-                                   (* 2
-                                      (+ 1
-                                         (:intensity-factor
-                                           ray
-                                           0))))])
-                            (assoc :lifetime
-                                     (lib/normal-distr
-                                       10
-                                       (Math/sqrt
-                                         5)))))])}))])
+                              [(lib/->grow (* 2 (+ 1 (:intensity-factor ray 0))))])
+                            (assoc :lifetime (lib/normal-distr 5 (Math/sqrt 2)))))])}))])
        (lib/live [:intensity-osc update-intensity-osc])))))
 
 (defn add-ray-source
   [state]
   (lib/append-ents state [(->ray-source)]))
-
 
 (defonce aggression (atom 0))
 
@@ -306,16 +296,30 @@
                  :scale 0.5
                  :stroke-weight 0
                  :on-update-map
-                 {:color-aggression
-                  (fn [e s k]
-                    (assoc
-                     e :color
-                     (defs/color-map
-                       (if (< 0.5 @aggression)
-                         :deep-pink
-                         :mint
+                 {:flash1
+                  (lib/every-n-seconds
+                   (fn [] (lib/normal-distr 5 1))
+                   (fn [e s k]
+                     (activation-flash
+                      e
+                      (:color e)
+                      (defs/color-map (rand-nth [:heliotrope :green-yellow :cyan :deep-pink]))
+                      (fn [ent] (assoc ent :color (:color e)))
 
-                         ))))}
+                      )
+                     ))}
+
+
+                 ;; :on-update-map
+                 ;; {:color-aggression
+                 ;;  (fn [e s k]
+                 ;;    (assoc
+                 ;;     e :color
+                 ;;     (defs/color-map
+                 ;;       (if (< 0.5 @aggression)
+                 ;;         :deep-pink
+                 ;;         :navajo-white
+                 ;;         ))))}
                  :vehicle-feel-color? true}
           :components
           [[:cart/motor :ma
@@ -344,35 +348,37 @@
            ;; ----------------------------
            [:brain/neuron :arousal
             {:arousal-neuron? true
-             :on-update [(lib/->baseline-arousal 0.2)]
+             :on-update [(lib/->baseline-arousal 0.5)]
              }]
            ;; ----------------------------
            [:brain/connection :_
             {:destination [:ref :ma]
              :f :excite
              :hidden? true
-             :on-update-map
-             {:gain
-              (lib/every-n-seconds
-               (fn [] (lib/normal-distr 1 1))
-               (fn [e s k]
-                 (assoc-in
-                  e [:transduction-model :gain]
-                  (* 10 (rand)))))}
+             ;; :on-update-map
+             ;; {:gain
+             ;;  (lib/every-n-seconds
+             ;;   (fn [] (lib/normal-distr 1 1))
+             ;;   (fn [e s k]
+             ;;     (assoc-in
+             ;;      e [:transduction-model :gain]
+             ;;      (+ 1 (/ (rand) 2)))))}
              :source [:ref :arousal]}]
            [:brain/connection :_
             {:destination [:ref :mb]
              :f :excite
              :hidden? true
 
-             :on-update-map
-             {:gain
-              (lib/every-n-seconds
-               (fn [] (lib/normal-distr 1 1))
-               (fn [e s k]
-                 (assoc-in e
-                           [:transduction-model :gain]
-                           (* 10 (rand)))))}
+             ;; :on-update-map
+             ;; {:gain
+             ;;  (lib/every-n-seconds
+             ;;   (fn [] (lib/normal-distr 1 1))
+             ;;   (fn [e s k]
+             ;;     (assoc-in
+             ;;      e
+             ;;      [:transduction-model :gain]
+             ;;      (+ 1 (/ (rand) 2))
+             ;;      )))}
 
              :source [:ref :arousal]}]
            ;; ----------------------------
@@ -381,7 +387,6 @@
              :destination [:ref :ma]
              :f :excite
 
-
              ;; :f (lib/->weighted -10)
 
              :on-update-map
@@ -391,11 +396,14 @@
                (fn [e s k]
                  (assoc-in
                   e [:transduction-model :gain]
-                  (* -10 (- 1 @aggression)))))}
+                  -10
+                  ;; (* -20 (- 1 (/ @aggression 5)))
+                  )))}
 
 
              :hidden? true
              :source [:ref :sa]}]
+
            [:brain/connection :_
             {:decussates? false
              :destination [:ref :mb]
@@ -403,7 +411,6 @@
              ;; :f (lib/->weighted -10)
              :f :excite
 
-
              :on-update-map
              {:gain
               (lib/every-n-seconds
@@ -411,10 +418,13 @@
                (fn [e s k]
                  (assoc-in
                   e [:transduction-model :gain]
-                  (* -10 (- 1 @aggression)))))}
+                  -10
+                  ;; (* -20 (- 1 (/ @aggression 5)))
+                  )))}
 
              :hidden? true
              :source [:ref :sb]}]
+
            ;; ----------------------------
            [:brain/connection :_
             {:decussates? false
@@ -433,39 +443,37 @@
 
             ]
            ;; ----------------------------
-           [:brain/connection :_
-            {:decussates? true
-             :destination [:ref :ma]
-             :f :excite
-             :hidden? true
-             :on-update-map
-             {:gain
-              (lib/every-n-seconds
-               (fn [] (lib/normal-distr 1 1))
-               (fn [e s k]
-                 (assoc-in
-                  e [:transduction-model :gain]
-                  (* 10 @aggression))))}
+           ;; [:brain/connection :_
+           ;;  {:decussates? true
+           ;;   :destination [:ref :ma]
+           ;;   :f :excite
+           ;;   :hidden? true
+           ;;   :on-update-map
+           ;;   {:gain
+           ;;    (lib/every-n-seconds
+           ;;     (fn [] (lib/normal-distr 1 1))
+           ;;     (fn [e s k]
+           ;;       (assoc-in
+           ;;        e [:transduction-model :gain]
+           ;;        (/ @aggression 2))))}
 
+           ;;   :source [:ref :sb]}]
+           ;; [:brain/connection :_
+           ;;  {:decussates? true
+           ;;   :destination [:ref :mb]
+           ;;   :f :excite
+           ;;   :hidden? true
 
+           ;;   :on-update-map
+           ;;   {:gain
+           ;;    (lib/every-n-seconds
+           ;;     (fn [] (lib/normal-distr 1 1))
+           ;;     (fn [e s k]
+           ;;       (assoc-in
+           ;;        e [:transduction-model :gain]
+           ;;        (/ @aggression 2))))}
 
-             :source [:ref :sb]}]
-           [:brain/connection :_
-            {:decussates? true
-             :destination [:ref :mb]
-             :f :excite
-             :hidden? true
-
-             :on-update-map
-             {:gain
-              (lib/every-n-seconds
-               (fn [] (lib/normal-distr 1 1))
-               (fn [e s k]
-                 (assoc-in
-                  e [:transduction-model :gain]
-                  (* 10 @aggression))))}
-
-             :source [:ref :sa]}]
+           ;;   :source [:ref :sa]}]
            ;; ----------------------------
            ]})]
     cart))
@@ -837,12 +845,12 @@
   ;;     [(temperature-bubble)])))
 
 
-  (swap!
-   lib/event-queue (fnil conj [])
-   (fn [s]
-     (lib/append-ents
-      s
-      (repeatedly 2 temperature-bubble-spawner))))
+  ;; (swap!
+  ;;  lib/event-queue (fnil conj [])
+  ;;  (fn [s]
+  ;;    (lib/append-ents
+  ;;     s
+  ;;     (repeatedly 4 temperature-bubble-spawner))))
 
   (let [v (elib/sine-wave-machine 1 10000)]
     (lib/state-on-update!
