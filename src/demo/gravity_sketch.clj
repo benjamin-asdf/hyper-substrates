@@ -86,33 +86,22 @@
   :middleware [m/fun-mode])
 
 (comment
-
-
-
-
-
-
   (def objects (setup-objects 2))
-
-
   (let [forces (g/gravity (map :position objects)
                           (map :mass objects))
         masses (torch/tensor (vec (map :mass objects))
                              :device
                              *torch-device*)
-        velocities (torch/tensor (vec (map :velocity objects))
+        velocities (torch/tensor (vec (map :velocity
+                                        objects))
                                  :device
                                  *torch-device*)
         velocities
-        (g/update-velocities velocities forces masses 1)
-        positions (torch/tensor (vec (map :position objects))
+          (g/update-velocities velocities forces masses 1)
+        positions (torch/tensor (vec (map :position
+                                       objects))
                                 :device
                                 *torch-device*)
-        positions (g/update-positions positions velocities 1)]
-    (for [[x y] (pyutils/torch->jvm positions)] [x y]))
-
-
-
-
-
-  )
+        positions
+          (g/update-positions positions velocities 1)]
+    (for [[x y] (pyutils/torch->jvm positions)] [x y])))
