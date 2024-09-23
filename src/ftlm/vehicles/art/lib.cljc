@@ -628,33 +628,41 @@
   [{:keys [anchor activation rotational-power]}]
   (* (or rotational-power 0) (or activation 0) (anchor->rot-influence anchor)))
 
+(defn motors
+  [entity state]
+  (sequence (comp (map (entities-by-id state))
+                  (filter :motor?))
+            (:components entity)))
+
 (defn update-body
   [entity state]
-  (if-not (:body? entity)
-    entity
-    (do (let [effectors (sequence (comp (map (entities-by-id
-                                               state))
-                                        (filter :motor?))
-                                  (:components entity))]
-          (-> entity
-              (update :acceleration
-                      (fnil + 0)
-                      (reduce +
-                        (map #(:activation % 0) effectors)))
-              (assoc :angular-acceleration
-                       (transduce
-                         (map
-                           effector->angular-acceleration)
-                         +
-                         effectors)))))))
+  entity
+  ;; (if-not (:body? entity)
+  ;;   entity
+  ;;   (do (let [effectors (sequence (comp (map (entities-by-id
+  ;;                                             state))
+  ;;                                       (filter :motor?))
+  ;;                                 (:components entity))]
+  ;;         (-> entity
+  ;;             (update :acceleration
+  ;;                     (fnil + 0)
+  ;;                     (reduce +
+  ;;                             (map #(:activation % 0) effectors)))
+  ;;             (update :angular-acceleration
+  ;;                     (fnil + 0)
+  ;;                     (transduce
+  ;;                      (map effector->angular-acceleration)
+  ;;                      +
+  ;;                      effectors))))))
+  )
 
 (defn update-rotation
   [entity]
   (if-not (:angular-velocity entity)
     entity
     (let [angular-velocity
-            (+ (:angular-velocity entity 0)
-               (* *dt* (:angular-acceleration entity 0)))]
+          (+ (:angular-velocity entity 0)
+             (* *dt* (:angular-acceleration entity 0)))]
       (-> entity
           (update-in [:transform :rotation]
                      (fnil #(+ % angular-velocity) 0))
