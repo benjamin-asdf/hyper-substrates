@@ -19,7 +19,8 @@
                  :mass 1e10
                  :position [(* 600 (rand)) (* 400 (rand))]
                  :radius 10
-                 :velocity [0 0]})]
+                 :velocity [(q/random-gaussian)
+                            (q/random-gaussian)]})]
     (concat [{:mass 1e13
               :position [300 300]
               :radius 5
@@ -33,7 +34,7 @@
 (defn setup
   []
   (q/frame-rate 60)
-  (let [objects (setup-objects 500)]
+  (let [objects (setup-objects 300)]
     {:masses (torch/tensor (vec (map :mass objects))
                            :device
                            *torch-device*)

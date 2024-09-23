@@ -32,6 +32,7 @@
      [bennischwerdtner.hd.codebook-item-memory :as codebook]
      [bennischwerdtner.hd.ui.audio :as audio]
      [bennischwerdtner.hd.data-next :as hdd]
+     [ftlm.vehicles.art.physics :as phy]
      [animismic.lib.blerp :as b]
      [animismic.lib.particles-core :as pe]
      [ftlm.vehicles.cart :as cart]
@@ -68,25 +69,29 @@
   (let [env (lib/env state)
         state (binding [*dt* dt]
                 (->
-                  state
-                  (update :t (fnil inc 0))
-                  (assoc :last-tick current-tick)
-                  ;; -----------------
-                  lib/kill-entities
-                  ;; -------------------
-                  lib/apply-update-events
-                  lib/update-update-functions
-                  lib/update-state-update-functions
-                  lib/apply-events
-                  (lib/update-ents-parallel
-                    #(update-entity % state env))
-                  lib/update-late-update-map
-                  lib/transduce-signals
-                  ;; those 2 are heavy,
-                  lib/track-components
-                  lib/track-conn-lines
-                  ;; also heavy:
-                  lib/update-collisions))]
+                 state
+                 (update :t (fnil inc 0))
+                 (assoc :last-tick current-tick)
+                 ;; -----------------
+                 lib/kill-entities
+                 ;; -------------------
+                 lib/apply-update-events
+                 lib/update-update-functions
+                 lib/update-state-update-functions
+                 lib/apply-events
+                 (lib/update-ents-parallel
+                  #(update-entity % state env))
+                 lib/update-late-update-map
+                 lib/transduce-signals
+                 ;; those 2 are heavy,
+                 lib/track-components
+                 lib/track-conn-lines
+                 ;; also heavy:
+                 lib/update-collisions
+                 ;;
+                 phy/physics-update-2d
+
+                 ))]
     state))
 
 (defn update-state
@@ -167,16 +172,12 @@
    (let [[e] (lib/->ray-source
                {:color (:deep-pink defs/color-map)
                 :intensity 30
+
                 :intensity-factor 1
                 :kinetic-energy 1
+                :mass 1e5
                 :on-collide-map
                 {:burst (lib/cooldown 5 lib/burst)}
-                :particle? true
-                :on-drag-start-map
-                {:survive
-                 (fn [e s k]
-                   (dissoc e :lifetime))}
-
                 :on-double-click-map
                 {:orient-towards-me
                  (fn [e s k]
@@ -184,7 +185,13 @@
                     (lib/update-ents
                      s
                      (fn [ent]
-                       (lib/orient-towards ent (lib/position e))))})}
+                       (lib/orient-towards
+                        ent
+                        (lib/position e))))})}
+                :on-drag-start-map
+                {:survive (fn [e s k]
+                            (dissoc e :lifetime))}
+                :particle? true
                 :pos pos
                 :scale 0.75
                 :shinyness nil})]
@@ -229,35 +236,7 @@
                           :kinetic-energy
                             (lib/normal-distr 5 2))))])
        #_(lib/live
-         [:circular-shine-radio
-          (lib/every-n-seconds
-            (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
-            (fn [ray s k]
-              {:updated-state
-                 (lib/append-ents
-                   s
-                   [(let [e (lib/->circular-shine-1 ray)]
-                      (->
-                        e
-                        (assoc :color (lib/with-alpha
-                                        (:yellow
-                                          defs/color-map)
-                                        0))
-                        (assoc :stroke-weight 3)
-                        (assoc :stroke (:color ray))
-                        (assoc :on-update
-                                 [(lib/->grow
-                                    (* 2
-                                       (+ 1
-                                          (:intensity-factor
-                                            ray
-                                            0))))])
-                        (assoc :lifetime (lib/normal-distr
-                                           3
-                                           (Math/sqrt
-                                            3)))))])}))])
-       (lib/live
-           [:circular-shine-field
+           [:circular-shine-radio
             (lib/every-n-seconds
               (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
               (fn [ray s k]
@@ -267,19 +246,55 @@
                      [(let [e (lib/->circular-shine-1 ray)]
                         (-> e
                             (assoc :color
-                                     ((rand-nth
-                                       [:black
-                                        :black
-                                        ;; :hit-pink
-                                        ;; :cyan
-                                        ;; :heliotrope
-                                        :mint
-                                        ])
-                                       defs/color-map))
+                                     (lib/with-alpha
+                                       (:yellow
+                                         defs/color-map)
+                                       0))
+                            (assoc :stroke-weight 3)
+                            (assoc :stroke (:color ray))
                             (assoc
                               :on-update
-                              [(lib/->grow (* 2 (+ 1 (:intensity-factor ray 0))))])
-                            (assoc :lifetime (lib/normal-distr 5 (Math/sqrt 2)))))])}))])
+                                [(lib/->grow
+                                   (* 2
+                                      (+ 1
+                                         (:intensity-factor
+                                           ray
+                                           0))))])
+                            (assoc :lifetime
+                                     (lib/normal-distr
+                                       3
+                                       (Math/sqrt
+                                         3)))))])}))])
+       #_(lib/live
+           [:circular-shine-field
+            (lib/every-n-seconds
+              (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
+              (fn [ray s k]
+                {:updated-state
+                   (lib/append-ents
+                     s
+                     [(let [e (lib/->circular-shine-1 ray)]
+                        (-> e
+                            (assoc :color ((rand-nth
+                                             [:black :black
+                                              ;; :hit-pink
+                                              ;; :cyan
+                                              ;; :heliotrope
+                                              :mint])
+                                            defs/color-map))
+                            (assoc
+                              :on-update
+                                [(lib/->grow
+                                   (* 2
+                                      (+ 1
+                                         (:intensity-factor
+                                           ray
+                                           0))))])
+                            (assoc :lifetime
+                                     (lib/normal-distr
+                                       5
+                                       (Math/sqrt
+                                         2)))))])}))])
        (lib/live [:intensity-osc update-intensity-osc])))))
 
 (defn add-ray-source
@@ -579,31 +594,55 @@
 (defn setup-internal
   [state]
   (-> state
+      (lib/append-ents
+        (repeatedly
+          100
+          (fn []
+            (lib/->entity
+              :rect
+              {:color (defs/color-map
+                        (rand-nth [:hit-pink :heliotrope
+                                   :green-yellow :white
+                                   :cyan]))
+               :mass 1
+               ;; :collides? true
+               :on-collide-map
+               {:die
+                (fn [e other s k]
+                  (assoc e :lifetime 1))}
+
+               ;; :particle? true
+               ;; :kinetic-energy 1
+               :transform (lib/->transform
+                           (lib/rand-on-canvas-gauss 0.5)
+                           20
+                           20
+                           1)}))))
       (assoc-in
-       [:on-update-map :update-colors]
-       (lib/every-n-seconds
-        (let [last-temp (atom 0)]
-          (fn [] (lib/normal-distr 0.1 0.1)))
-        (let [black? (atom false)]
-          (fn [s _]
-            (let [color (defs/color-map
-                          (if @black?
-                            :black
-                            (rand-nth [:hit-pink
-                                       :heliotrope
-                                       :green-yellow
-                                       :white :cyan])))
-                  _ (swap! black? not)]
-              (lib/update-ents
-               s
-               (fn [ent]
-                 (if-not (:update-colors1? ent)
-                   ent
-                   (if (not @black?)
-                     (assoc ent
-                            :color (defs/color-map :cyan))
-                     (assoc ent
-                            :color defs/black))))))))))))
+        [:on-update-map :update-colors]
+        (lib/every-n-seconds
+          (let [last-temp (atom 0)]
+            (fn [] (lib/normal-distr 0.1 0.1)))
+          (let [black? (atom false)]
+            (fn [s _]
+              (let [color (defs/color-map
+                            (if @black?
+                              :black
+                              (rand-nth [:hit-pink
+                                         :heliotrope
+                                         :green-yellow
+                                         :white :cyan])))
+                    _ (swap! black? not)]
+                (lib/update-ents
+                  s
+                  (fn [ent]
+                    (if-not (:update-colors1? ent)
+                      ent
+                      (if (not @black?)
+                        (assoc ent
+                          :color (defs/color-map :cyan))
+                        (assoc ent
+                          :color defs/black))))))))))))
 
 
 (defmethod lib/setup-version :vehicle-1
@@ -834,7 +873,9 @@
   (swap! lib/event-queue (fnil conj []) add-ray-source)
   ;;
 
-  (swap! lib/event-queue (fnil conj []) vehicles)
+  ;; (swap! lib/event-queue (fnil conj []) vehicles)
+
+
   ;; (swap! lib/event-queue (fnil conj []) vehicles)
   ;; (swap! lib/event-queue (fnil conj []) vehicles)
   ;; (swap!

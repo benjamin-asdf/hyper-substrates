@@ -13,7 +13,6 @@
 
 (defonce the-state (atom {:event-q (atom [])}))
 
-
 (defn normal-distr [mean std-deviation]
   (+ mean (* std-deviation (q/random-gaussian))))
 
@@ -40,7 +39,6 @@
   (cond
     (<= x 0) -1
     (> x 0) 1))
-
 
 (defn controls []
   (q/state :controls))
@@ -112,7 +110,6 @@
                   ents)]
     ents))
 
-
 (defn update--entities
   [state f]
   (update state :eid->entity (fn [s] (into {} (f s)))))
@@ -121,8 +118,6 @@
 (defn position [e] (-> e transform :pos))
 (defn rotation [e] (-> e transform :rotation))
 (defn scale [e] (-> e transform :scale))
-
-
 
 ;; returns a fn that returns the args to q/bezier
 (defn ->bezier
@@ -141,11 +136,6 @@
              (normal-distr 0 distr)]
             [(normal-distr 0 distr)
              (normal-distr 0 distr)]))
-
-
-
-(def connection->infected :entity-a)
-(def connection->non-infected :entity-b)
 
 (defn every-n-seconds [n f]
   (let [n (if (number? n) (constantly n) n)
@@ -190,8 +180,6 @@
 
 ;; ----------------------------------------
 
-
-
 ;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
@@ -231,8 +219,6 @@
             (assoc :shine shine)
             (update :color
                     (fn [_c] (q/color shine 255 255))))))))
-
-
 
 (defn sine-wave [frequency time-in-millis]
   (* (Math/sin (* 2 Math/PI (/ time-in-millis 1000) frequency))))
@@ -324,7 +310,6 @@
           :else (drw))))
 
 (defmethod draw-entity :default [_])
-
 
 (defmethod draw-entity :line
   [{:keys [transform end-pos color] :as e}]
@@ -647,10 +632,9 @@
   [entity state]
   (if-not (:body? entity)
     entity
-    (do
-      (let [effectors (sequence (comp
-                                   (map (entities-by-id state))
-                                   (filter :motor?))
+    (do (let [effectors (sequence (comp (map (entities-by-id
+                                               state))
+                                        (filter :motor?))
                                   (:components entity))]
           (-> entity
               (update :acceleration
@@ -666,23 +650,29 @@
 
 (defn update-rotation
   [entity]
-  (let [angular-velocity
-          (+ (:angular-velocity entity 0)
-             (* *dt* (:angular-acceleration entity 0)))]
-    (-> entity
-        (update-in [:transform :rotation]
-                   (fnil #(+ % angular-velocity) 0))
-        (assoc :angular-velocity angular-velocity))))
+  (if-not (:angular-velocity entity)
+    entity
+    (let [angular-velocity
+            (+ (:angular-velocity entity 0)
+               (* *dt* (:angular-acceleration entity 0)))]
+      (-> entity
+          (update-in [:transform :rotation]
+                     (fnil #(+ % angular-velocity) 0))
+          (assoc :angular-velocity angular-velocity)))))
 
 (defn move-dragged
   [entity]
   (if (:dragged? entity)
-    (assoc-in entity [:transform :pos] [(q/mouse-x) (q/mouse-y)])
+    (assoc-in entity
+      [:transform :pos]
+      [(q/mouse-x) (q/mouse-y)])
     entity))
 
 (defn update-position
   [{:as entity :keys [velocity acceleration]}]
-  (if-not (-> entity :transform :pos)
+  (if-not (-> entity
+              :transform
+              :pos)
     entity
     (let [velocity (or velocity 0)
           acceleration (or acceleration 0)
@@ -699,7 +689,6 @@
                        (vector (+ (first position) x)
                                (+ (second position)
                                   y))))))))
-
 
 (defn activation-shine
   [{:as entity
@@ -1276,25 +1265,17 @@
 
 (defn update-collisions
   [state]
-  (def state state)
   (let [ents (vec (filter :collides? (entities state)))]
-    ;; (let [ents (vec (filter :collides? (entities state)))]
-    ;;   (let [ ;; positions
-    ;;         positions (map position ents)
-    ;;         radii (map radius ents)]
-    ;;     (collide/collisions positions radii)))
-
     (reduce (fn [s [i j]]
               (-> s
                   (update-collision (:id (ents i))
                                     (:id (ents j)))
                   (update-collision (:id (ents j))
                                     (:id (ents i)))))
-            state
-            (let [ ;; positions
-                  positions (map position ents)
-                  radii (map radius ents)]
-              (collide/collisions positions radii)))))
+      state
+      (let [positions (map position ents)
+            radii (map radius ents)]
+        (collide/collisions positions radii)))))
 
 (defn update-update-functions-1
   [state]
@@ -1340,8 +1321,6 @@
 (defn ->call-callbacks
   [k]
   (fn [state e]
-    ;; (def state state)
-    ;; (def e e)
     (let [s state
           {:as e :keys [id]} e
           cb-map (k e)]
@@ -1792,3 +1771,5 @@
 (defn state-on-update!
   [op]
   (swap! event-queue (fnil conj []) (fn [s] (+state-on-update s op))))
+
+;; ----------------------------------
