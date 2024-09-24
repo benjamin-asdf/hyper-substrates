@@ -1102,12 +1102,10 @@
       s
       (repeatedly 1 temperature-bubble-spawner))))
 
+
   (let [v (elib/sine-wave-machine 1 10000)]
     (lib/state-on-update!
-     (fn [s k]
-       (reset! aggression (v))
-       s
-       )))
+     (fn [s k] (reset! aggression (v)) s)))
 
 
 
@@ -1409,12 +1407,9 @@
 
 (comment
 
-  (swap! lib/event-queue (fnil conj [])
-         (fn [s]
-           (lib/append-ents
-            s
-            [(full-block 1)]
-            )))
+  (swap! lib/event-queue
+         (fnil conj [])
+         (fn [s] (lib/append-ents s [(full-block 1)])))
 
   (def block-n (atom 0))
   (def dir (atom dec))
