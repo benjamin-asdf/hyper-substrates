@@ -604,21 +604,21 @@
                       u/ascending
                       :id
                       u/ascending)
-                (sequence (comp
-                           (remove :hidden?)
-                           (filter validate-entity))
+                (sequence (comp (remove :hidden?)
+                                (filter validate-entity))
                           entities))]
     (q/stroke-weight (or (:stroke-weight entity) 1))
+    ;; heaviest op, when done per entity
     (draw-color color)
-    (let
-        [drw (fn []
-               (draw-entity entity)
-               ;; (doall (map (fn [op] (op entity))
-               ;;             (vals draw-functions)))
-               )]
-        (cond (:stroke entity)
-              (q/with-stroke (->hsb (:stroke entity)) (drw))
-              :else (drw)))))
+    (let [drw (fn []
+                (draw-entity entity)
+                ;; (doall (map (fn [op] (op entity))
+                ;;             (vals draw-functions)))
+                )]
+      (cond (:stroke entity)
+            (q/with-stroke (->hsb (:stroke entity)) (drw))
+            :else (drw)))))
+
 
 (defn draw-entities
   [state]
@@ -636,25 +636,23 @@
 
 (defn update-body
   [entity state]
-  entity
-  ;; (if-not (:body? entity)
-  ;;   entity
-  ;;   (do (let [effectors (sequence (comp (map (entities-by-id
-  ;;                                             state))
-  ;;                                       (filter :motor?))
-  ;;                                 (:components entity))]
-  ;;         (-> entity
-  ;;             (update :acceleration
-  ;;                     (fnil + 0)
-  ;;                     (reduce +
-  ;;                             (map #(:activation % 0) effectors)))
-  ;;             (update :angular-acceleration
-  ;;                     (fnil + 0)
-  ;;                     (transduce
-  ;;                      (map effector->angular-acceleration)
-  ;;                      +
-  ;;                      effectors))))))
-  )
+  (if-not (:body? entity)
+    entity
+    (do (let [effectors (sequence (comp (map (entities-by-id
+                                              state))
+                                        (filter :motor?))
+                                  (:components entity))]
+          (-> entity
+              (update :acceleration
+                      (fnil + 0)
+                      (reduce +
+                              (map #(:activation % 0) effectors)))
+              (update :angular-acceleration
+                      (fnil + 0)
+                      (transduce
+                       (map effector->angular-acceleration)
+                       +
+                       effectors)))))))
 
 (defn update-rotation
   [entity]
@@ -1165,7 +1163,8 @@
     e
     (kinetic-energy-motion e
                            (or (:kinetic-energy e)
-                               (:brownian-factor (controls))
+                               (:brownian-factor
+                                (controls))
                                0))))
 
 (defn ray-source-collision-burst

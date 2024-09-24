@@ -2,9 +2,16 @@
   (:require [bennischwerdtner.pyutils :as pyutils :refer
              [*torch-device*]]
             [fastmath.core :as fm]
+            [tech.v3.tensor :as dtt]
             [libpython-clj2.require :refer [require-python]]
             [libpython-clj2.python :refer [py. py..] :as py]
             [ftlm.vehicles.art.lib :as lib :refer [*dt*]]))
+
+;;
+;; This is a toy physics engine
+;; It shows a certain disregard for Newton
+;;
+
 
 (do
   (require-python '[torch :as torch])
@@ -37,11 +44,9 @@
                              1)
                    (to :dtype torch/float))]
     (->
-      (torch/div (torch/einsum "i,j->ji" masses masses)
+     (torch/div (torch/einsum "i,j->ji" masses masses)
                  (torch/pow distances 2))
       (py.. (mul_ mask) (mul_ G) (clamp_max_ max-force)))))
-
-
 
 (defn force-direction
   "Computes normalized direction vectors between all pairs of objects"
@@ -56,15 +61,6 @@
   (let [out (torch/zeros_like positions
                               :dtype torch/float
                               :device *torch-device*)]
-    ;; (let [distances (pairwise-distance positions)
-    ;;       forces (gravitational-force masses
-    ;;       distances)
-    ;;       directions (force-direction positions
-    ;;       distances)
-    ;;       forces
-    ;;       (torch/einsum "ijk,ij->ik" directions
-    ;;       forces)]
-    ;;   (py.. out (copy_ forces)))
     (py/with-gil-stack-rc-context
       (let [distances (pairwise-distance positions)
             forces (gravitational-force masses distances)
@@ -97,16 +93,38 @@
 
 ;; ---------------------------------------------------------------
 
-
-
-
-(defn motor-force [])
-
+(defn directions-to-angles
+  "Converts a tensor of shape (n-objects, 2) to a tensor of shape (n-objects) with the angles.
+  Each angle is calculated using torch.atan2 for the y and x components."
+  [directions]
+  (let [x (torch/select directions 1 0)
+        y (torch/select directions 1 1)]
+    (torch/subtract (torch/atan2 y x) fm/HALF_PI)))
 
 ;; ---------------------------------------------------------------
 
 
+;;
+;; Actually, what I had before as 'browian motion' was more toy,
+;; but also more cute because the vehicles moved always forward, not to the side like now
+;; now the brownian motion makes you look like you are blown in the wind -
+;; which makes sense Ig.
+;;
+;; Also interesting how much the mass influences this, massive things don't have brownian motion
+;;
 
+;; kinetic energy = 1/2 m v^2
+(defn brownian-motion
+  [kinetic-energies masses]
+  (torch/einsum
+   "ij,i->ij"
+   (torch/normal 0
+                 100 [(py.. kinetic-energies (size 0)) 2]
+                 :device *torch-device*)
+   (torch/sqrt (torch/div (torch/mul kinetic-energies 2)
+                          masses))))
+
+;; ---------------------------------------------------------------
 
 (defn update-angular-velocity
   "Updates angular velocity based on the torque and moment of inertia"
@@ -123,44 +141,36 @@
   "Updates angular accelerations based on force directions and current object rotations.
   If the object is aligned with the force, the angular acceleration is zero.
   Otherwise, the angular acceleration is proportional to the angular difference."
-  [rotations force-angles angular-accelerations
-   force-magnitudes moment-of-inertias dt]
-  (let [angle-diff (torch/subtract force-angles rotations)
-        torque (torch/mul force-magnitudes
-                          (torch/sin angle-diff))
+  [rotations angular-accelerations moment-of-inertias
+   forces]
+  (let [force-angles (directions-to-angles forces)
+        angle-diff (torch/subtract force-angles rotations)
+        torque (torch/mul
+                 (torch.linalg/vector_norm forces :dim 1)
+                 (torch/sin angle-diff))
         new-angular-accelerations
           (torch/add angular-accelerations
                      (torch/div torque moment-of-inertias))]
     new-angular-accelerations))
 
+
 ;; -----------------------------------------------
 
-(defn motor-forces
-  [ent]
-  (let [effectors (lib/motors ent state)]
-    {:motor-force (reduce + (map #(:activation % 0) effectors))
-     :motor-torque
-     (transduce (map lib/effector->angular-acceleration)
-                +
-                effectors)}))
-
-
-
+#_(defn motor-forces
+    [ent]
+    (let [effectors (lib/motors ent state)]
+      {:motor-force (reduce + (map #(:activation % 0) effectors))
+       :motor-torque
+       (transduce (map lib/effector->angular-acceleration)
+                  +
+                  effectors)}))
 
 ;; ----------------------------------------------------
 
-(defn directions-to-angles
-  "Converts a tensor of shape (n-objects, 2) to a tensor of shape (n-objects) with the angles.
-  Each angle is calculated using torch.atan2 for the y and x components."
-  [directions]
-  (let [x (torch/select directions 1 0)
-        y (torch/select directions 1 1)]
-    (torch/subtract (torch/atan2 y x) fm/HALF_PI)))
 
 
 (defn physics-update-2d
   [state]
-  (def state state)
   (let [ents (filter :mass (lib/entities state))
         dt *dt*
         positions (torch/tensor
@@ -175,145 +185,67 @@
          (into [] (map #(:velocity2d % [0 0])) ents)
          :device
          *torch-device*)
-
-
-        gravity-forces (gravity positions masses)
-
-        ;; motor-forces-1 (motor-forces ents)
-
-
-
-        ;; forces
-
-        force-magnitudes (torch.linalg/vector_norm gravity-forces :dim 1)
-
-
-        velocities (update-velocities velocities
-                                      gravity-forces
-                                      masses
-                                      dt)
-        velocities (friction velocities dt)
-        positions (update-positions positions velocities dt)
-
-        rotations
+        kinetic-energies
         (torch/tensor
-         (into [] (map (fn [e] (-> e :transform :rotation)) ents))
+         (into [] (map #(:kinetic-energy % 0) ents))
          :device
          *torch-device*)
-
-        force-angles (directions-to-angles gravity-forces)
-
-
-        angle-diff (torch/subtract force-angles rotations)
-
+        brownian-forces (brownian-motion kinetic-energies
+                                         masses)
+        gravity-forces (gravity positions masses)
+        forces (torch/sum (torch/stack [gravity-forces
+                                        brownian-forces])
+                          :dim
+                          0)
+        velocities
+        (update-velocities velocities forces masses dt)
+        velocities (friction velocities dt)
+        positions
+        (update-positions positions velocities dt)
+        rotations (torch/tensor (into []
+                                      (map (fn [e]
+                                             (->
+                                              e
+                                              :transform
+                                              :rotation))
+                                           ents))
+                                :device
+                                *torch-device*)
         angular-accelerations
         (torch/tensor
-         (into [] (map #(:angular-acceleration % 0) ents))
+         (into []
+               (map #(:angular-acceleration % 0) ents))
          :device
          *torch-device*)
         moment-of-inertias
         (torch/tensor
-         (into [] (map #(:moment-of-inertia % 1000) ents))
+         (into []
+               (map #(:moment-of-inertia % 1000) ents))
          :device
          *torch-device*)
-
-
+        ;; -------------------------------------------
+        ;; Updating angular velocities a little bit
+        ;; so the objects rotate towards a gravity
+        ;; source
         angular-accelerations
-        (torch/clamp
-         (update-angular-accelerations
-          rotations
-          force-angles
-          angular-accelerations
-          force-magnitudes
-          moment-of-inertias
-          dt)
-         -1
-         1)
-
-        _ (def dt dt)
-
-        ;; angular-accelerations
-        ;; (friction angular-accelerations dt)
-
-        _ (def angular-accelerations angular-accelerations)
-
-
-        ;; (update-angular-accelerations
-        ;;  rotations
-        ;;  force-angles
-        ;;  angular-accelerations
-        ;;  force-magnitudes
-        ;;  moment-of-inertias
-        ;;  dt)
-
-        ;; angular-velocities
-        ;; (torch/tensor
-        ;;  (into [] (map #(:angular-velocity % 0) ents))
-        ;;  :device
-        ;;  *torch-device*)
-        ;; angular-velocities
-        ;; (update-angular-velocity angular-velocities
-        ;;                          torque
-        ;;                          (torch/ones_like torque)
-        ;;                          dt)
-        ;; rotations (update-angle rotations angular-velocities dt)
-        ents (map
-              (fn [e p v a]
-                (-> e
-                    (assoc :velocity2d v)
-                    (assoc :angular-acceleration a)
-                    (assoc-in [:transform :pos] p)))
-              ents
-              (pyutils/torch->jvm positions)
-              (pyutils/torch->jvm velocities)
-              (pyutils/torch->jvm angular-accelerations)
-              ;; (pyutils/torch->jvm angular-velocities)
-
-              )]
-    ;; (def ents ents)
+        (update-angular-accelerations
+         rotations
+         angular-accelerations
+         moment-of-inertias
+         forces)
+        ents (doall
+              (map (fn [e p v a]
+                     (-> e
+                         (assoc :velocity2d v)
+                         (assoc :angular-acceleration a)
+                         (assoc-in [:transform :pos] p)))
+                   ents
+                   (pyutils/torch->jvm positions)
+                   (pyutils/torch->jvm velocities)
+                   (pyutils/torch->jvm
+                    angular-accelerations)))]
     (-> state
-        (update :eid->entity
-                merge
-                (into {} (map (juxt :id identity)) ents)))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-(comment
-
-  (fm// 0.1 0.1)
-
-  (fm// 0.1 0.1)
-
-  (fm/pow 0.95 0.1)
-  (fm/pow 0.95 0.1)
-  (fm/* 0.95 0.1)
-
-
-
-  (py.. gravity-forces (size))
-  torch.Size
-  ([101 2])
-  (torch/atan gravity-forces)
-  (directions-to-angles gravity-forces)
-  (torch/atan2 gravity-forces)
-  )
+        (update
+         :eid->entity
+         merge
+         (into {} (map (juxt :id identity)) ents)))))
