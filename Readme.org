@@ -1,4 +1,3 @@
-
 * Hyper Substrates
 
 Visualizing 'ensemble' (Braitenberg, Schütz, Palm, Pulvermüller, Yuste, Buzsáki, Von Der Malsburg, etc.) neuronal nets.
@@ -16,9 +15,14 @@ Since I am a visual person and I want to /feel/ what I program, I build this stu
 
 This is a kind of a-life excerice. And a hammock driven delopment thing.
 
-** Software art
+** Software Art / Accidentally a small game engine
 
-Developing the lib for the visuals also makes this the place where I currently have the code for the softare art
+My vision is a software world for Braitenberg vehicles. I suppose there is some law of nature that
+makes such software become a game engine.
+
+This vibes with [[http://probmods.org/][Josh Tenenbaum and collaborators]] Probilistic cognitive modeling.[fn:1]
+
+Developing my personal lib for the visuals also makes this the place where I currently have the code for the softare art
 that I put up [[https://faster-than-light-memes.xyz/art-diary.html][here]].
 
 * Brownian Local Explorer Resonator Particle - Blerp
@@ -144,3 +148,16 @@ Buzsáki, G. (2019). The Brain From Inside Out. New York: Oxford University.
 
 FRIEDEMANN PULVERMÜLLER
 https://www.sciencedirect.com/science/article/abs/pii/0149763495000682
+
+* Footnotes
+
+[fn:1]
+
+I see value in this, but my fundamental idea is that a cognitive system makes it's own physics.
+A world model is a useful technology for the cognitive system running an animal in the world;
+
+But my claim is on the nature of the software, not what it computes.
+Exploring possible worlds and possible physics should be equivalent to program search.
+
+In other words, there is /a kind of/ physics and chemistry that the brain is implementing, and that this makes a simulated virtual world
+in which biological entities (memes, subprograms, concepts, habbits, mental-technologies) /live/.
