@@ -1,3 +1,4 @@
+
 * Hyper Substrates
 
 Visualizing 'ensemble' (Braitenberg, Schütz, Palm, Pulvermüller, Yuste, Buzsáki, Von Der Malsburg, etc.) neuronal nets.
@@ -14,6 +15,11 @@ and meme-like (Dennett), self-growing (Turing, Levin), self-stabilizing (dare I 
 Since I am a visual person and I want to /feel/ what I program, I build this stuff here, to see what it does.
 
 This is a kind of a-life excerice. And a hammock driven delopment thing.
+
+** Software art
+
+Developing the lib for the visuals also makes this the place where I currently have the code for the softare art
+that I put up [[https://faster-than-light-memes.xyz/art-diary.html][here]].
 
 * Brownian Local Explorer Resonator Particle - Blerp
 
@@ -107,7 +113,8 @@ This colorful, joyful, toy-like information processsing system is the flair that
 
 Art diary: https://faster-than-light-memes.xyz/art-diary.html
 
-Next, I would like to play around with giving a Braitenberg Vehicle memories in the form of hyperdimensional associative data structures.
+# Next, I would like to play around with giving a Braitenberg Vehicle memories in the form of hyperdimensional associative data structures.
+
 
 * Run
 
