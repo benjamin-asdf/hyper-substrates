@@ -161,3 +161,6 @@ Exploring possible worlds and possible physics should be equivalent to program s
 
 In other words, there is /a kind of/ physics and chemistry that the brain is implementing, and that this makes a simulated virtual world
 in which software-biological entities (memes, subprograms, concepts, habbits, mental-technologies) /live/.
+
+What is this physics and chemisty? That is the topic of neuronal codes, syntax and interpreters.
+(And I'm trying to make toys that explore them).
