@@ -619,7 +619,6 @@
             (q/with-stroke (->hsb (:stroke entity)) (drw))
             :else (drw)))))
 
-
 (defn draw-entities
   [state]
   (draw-entities-1 (entities state)))
@@ -638,21 +637,21 @@
   [entity state]
   (if-not (:body? entity)
     entity
-    (do (let [effectors (sequence (comp (map (entities-by-id
-                                              state))
-                                        (filter :motor?))
-                                  (:components entity))]
-          (-> entity
-              (update :acceleration
-                      (fnil + 0)
-                      (reduce +
-                              (map #(:activation % 0) effectors)))
-              (update :angular-acceleration
-                      (fnil + 0)
-                      (transduce
-                       (map effector->angular-acceleration)
-                       +
-                       effectors)))))))
+    (let [effectors (sequence (comp (map (entities-by-id
+                                           state))
+                                    (filter :motor?))
+                              (:components entity))]
+      (-> entity
+          (update :acceleration
+                  (fnil + 0)
+                  (reduce +
+                    (map #(:activation % 0) effectors)))
+          (update :angular-acceleration
+                  (fnil + 0)
+                  (transduce
+                    (map effector->angular-acceleration)
+                    +
+                    effectors))))))
 
 (defn update-rotation
   [entity]
@@ -776,22 +775,18 @@
   [entity env]
   (if (:sensor? entity) (update-sensor entity env) entity))
 
-(defn activation-decay [{:keys [activation] :as entity}]
+(defn activation-decay
+  [{:as entity :keys [activation]}]
+  entity
   (if activation
     (let [sign (signum activation)
-          activation (* sign (- (abs activation) 0.2) 0.8)]
+          activation (* sign (let [v (abs activation)]
+                               (if (< v 0.2)
+                                 v
+                                 (- v 0.2 )
+                                 )) 0.8)]
       (assoc entity :activation activation))
     entity))
-
-(comment
-  (let [activation 14
-        sign (signum activation)
-        activation (* sign (- (abs activation) 0.2) 0.8)]
-    activation)
-  (let [activation 11.040000000000001
-        sign (signum activation)
-        activation (* sign (- (abs activation) 0.2) 0.8)]
-    activation))
 
 (defn ->transdution-model
   ([a b] (->transdution-model a b identity))
@@ -1620,21 +1615,17 @@
 
 (defn mouse-wheel
   [state rotation]
-  (if-let [ent ((entities-by-id state)
-                 (-> state
-                     :selection
-                     :id))]
-    (do (rotate-entity state
-                       (:id ent)
-                       #?(:cljs (/ rotation 50 2.5)
-                          :clj (* rotation 100)))
-        ;; (update-in state
-        ;;            [:eid->entity (:id ent)
-        ;;            :angular-acceleration]
-        ;;            +
-        ;;            (* rotation 100))
-    )
-    state))
+  (let [new-state (if-let [ent ((entities-by-id state)
+                                 (-> state
+                                     :selection
+                                     :id))]
+                    (rotate-entity
+                      state
+                      (:id ent)
+                      #?(:cljs (/ rotation 50 2.5)
+                         :clj (* rotation 100)))
+                    state)]
+    (merge state new-state)))
 
 (def actuator? :actuator?)
 

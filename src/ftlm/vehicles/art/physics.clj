@@ -171,81 +171,90 @@
 
 (defn physics-update-2d
   [state]
-  (let [ents (filter :mass (lib/entities state))
-        dt *dt*
-        positions (torch/tensor
-                   (into [] (map lib/position) ents)
-                   :device
-                   *torch-device*)
-        masses (torch/tensor (into [] (map :mass) ents)
-                             :device
-                             *torch-device*)
-        velocities
-        (torch/tensor
-         (into [] (map #(:velocity2d % [0 0])) ents)
-         :device
-         *torch-device*)
-        kinetic-energies
-        (torch/tensor
-         (into [] (map #(:kinetic-energy % 0) ents))
-         :device
-         *torch-device*)
-        brownian-forces (brownian-motion kinetic-energies
-                                         masses)
-        gravity-forces (gravity positions masses)
-        forces (torch/sum (torch/stack [gravity-forces
-                                        brownian-forces])
-                          :dim
-                          0)
-        velocities
-        (update-velocities velocities forces masses dt)
-        velocities (friction velocities dt)
-        positions
-        (update-positions positions velocities dt)
-        rotations (torch/tensor (into []
+  (let [ents (filter :mass (lib/entities state))]
+    (if-not (seq ents)
+      state
+      (let [_ (def ents ents)
+            dt *dt*
+            positions (torch/tensor
+                        (into [] (map lib/position) ents)
+                        :device
+                        *torch-device*)
+            masses (torch/tensor (into [] (map :mass) ents)
+                                 :device
+                                 *torch-device*)
+            velocities
+              (torch/tensor
+                (into [] (map #(:velocity2d % [0 0])) ents)
+                :device
+                *torch-device*)
+            kinetic-energies
+              (torch/tensor
+                (into [] (map #(:kinetic-energy % 0) ents))
+                :device
+                *torch-device*)
+            brownian-forces
+              (brownian-motion kinetic-energies masses)
+            gravity-forces (gravity positions masses)
+            forces (torch/sum (torch/stack
+                                [gravity-forces
+                                 brownian-forces])
+                              :dim
+                              0)
+            velocities (update-velocities velocities
+                                          forces
+                                          masses
+                                          dt)
+            velocities (friction velocities dt)
+            positions
+              (update-positions positions velocities dt)
+            rotations (torch/tensor (into
+                                      []
                                       (map (fn [e]
-                                             (->
-                                              e
-                                              :transform
-                                              :rotation))
-                                           ents))
-                                :device
-                                *torch-device*)
-        angular-accelerations
-        (torch/tensor
-         (into []
-               (map #(:angular-acceleration % 0) ents))
-         :device
-         *torch-device*)
-        moment-of-inertias
-        (torch/tensor
-         (into []
-               (map #(:moment-of-inertia % 1000) ents))
-         :device
-         *torch-device*)
-        ;; -------------------------------------------
-        ;; Updating angular velocities a little bit
-        ;; so the objects rotate towards a gravity
-        ;; source
-        angular-accelerations
-        (update-angular-accelerations
-         rotations
-         angular-accelerations
-         moment-of-inertias
-         forces)
-        ents (doall
-              (map (fn [e p v a]
-                     (-> e
-                         (assoc :velocity2d v)
-                         (assoc :angular-acceleration a)
-                         (assoc-in [:transform :pos] p)))
-                   ents
-                   (pyutils/torch->jvm positions)
-                   (pyutils/torch->jvm velocities)
-                   (pyutils/torch->jvm
-                    angular-accelerations)))]
-    (-> state
-        (update
-         :eid->entity
-         merge
-         (into {} (map (juxt :id identity)) ents)))))
+                                             (-> e
+                                                 :transform
+                                                 :rotation))
+                                        ents))
+                                    :device
+                                    *torch-device*)
+            angular-accelerations
+              (torch/tensor
+                (into []
+                      (map #(:angular-acceleration % 0)
+                        ents))
+                :device
+                *torch-device*)
+            moment-of-inertias
+              (torch/tensor
+                (into []
+                      (map #(:moment-of-inertia % 1000)
+                        ents))
+                :device
+                *torch-device*)
+            ;; -------------------------------------------
+            ;; Updating angular velocities a little bit
+            ;; so the objects rotate towards a gravity
+            ;; source
+            angular-accelerations
+              (update-angular-accelerations
+                rotations
+                angular-accelerations
+                moment-of-inertias
+                forces)
+            ents (doall
+                   (map (fn [e p v a]
+                          (->
+                            e
+                            (assoc :velocity2d v)
+                            (assoc :angular-acceleration a)
+                            (assoc-in [:transform :pos] p)))
+                     ents
+                     (pyutils/torch->jvm positions)
+                     (pyutils/torch->jvm velocities)
+                     (pyutils/torch->jvm
+                       angular-accelerations)))]
+        (-> state
+            (update
+              :eid->entity
+              merge
+              (into {} (map (juxt :id identity)) ents)))))))

@@ -3,7 +3,11 @@
     cnuernber/dtype-next {:mvn/version "10.113"}
     generateme/fastmath {:mvn/version "2.4.0"}
     hdbseg/hdbseg
-      {:local/root
-         "../vsa-binary-sparse-distributed-segments-clj/"}
+    {:local/root
+     "../vsa-binary-sparse-distributed-segments-clj/"}
+
+    datascript/datascript {:mvn/version "1.7.3"}
+
+
     quil/quil {:mvn/version "4.3.1563"}}
  :paths ["src" "resources"]}
