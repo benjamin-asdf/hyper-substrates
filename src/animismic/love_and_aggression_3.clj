@@ -220,7 +220,7 @@
            '[:find (pull ?e [*])
              :where [?e :draw]]
            (d/db (:db-conn state))))]
-      ((:draw e) e)))
+    ((:draw e) e)))
 
 (defn update-entity
   [entity state env]
@@ -398,10 +398,12 @@
   ([pos]
    (let [[e] (lib/->ray-source
               {:color (:white defs/color-map)
-               :transform (lib/->transform (lib/rand-on-canvas-gauss 0.2) 10 10 1)
+               :transform
+               (lib/->transform (lib/rand-on-canvas-gauss 0.2) 20 20 1)
                :intensity 20
                :intensity-factor 1
-               :kinetic-energy 1
+               :kinetic-energy 0.5
+
 
                ;; :mass 1e5
 
@@ -687,11 +689,39 @@
                  :scale 0.5
                  :hidden? false
                  :on-collide-map
-                   {:count-aggression
-                      (fn [e other s k]
-                        (when (:ray-source? other)
-                          (swap! ray-source-hunger dec))
-                        e)}
+
+                 {:count-aggression
+                  (fn [e other s k]
+                    (if
+                        (:ray-source? other)
+                        (do
+                          (swap! ray-source-hunger (constantly -6))
+
+                          e
+                          #_{:updated-state
+                             (lib/append-ents
+                              s
+                              [(elib/->text
+                                {:color
+                                 (:green-yellow defs/color-map)
+                                 :text "--"
+                                 :lifetime 0.2
+                                 :transform
+                                 (lib/->transform
+                                  (lib/position
+                                   e)
+                                  20
+                                  20
+                                  1)})])
+
+                             }
+
+                          )
+                        e
+
+
+                        )
+                    )}
                  ;; :mass 100
                  ;; :particle? true
                  ;; :kinetic-energy 0.1
@@ -699,17 +729,17 @@
                  :stroke-weight 0
                  ;; :on-update-map
                  #_{:flash1
-                      (lib/every-n-seconds
-                        (fn [] (lib/normal-distr 5 1))
-                        (fn [e s k]
-                          (activation-flash
-                            e
-                            (:color e)
-                            (defs/color-map
-                              (rand-nth [:cyan :deep-pink]))
-                            (fn [ent]
-                              (assoc ent
-                                :color (:coloor e))))))}
+                    (lib/every-n-seconds
+                     (fn [] (lib/normal-distr 5 1))
+                     (fn [e s k]
+                       (activation-flash
+                        e
+                        (:color e)
+                        (defs/color-map
+                          (rand-nth [:cyan :deep-pink]))
+                        (fn [ent]
+                          (assoc ent
+                                 :color (:coloor e))))))}
                  ;; :on-update-map
                  ;; {:color-aggression
                  ;;  (fn [e s k]
@@ -719,9 +749,9 @@
                  ;;         :white
                  ;;         ))))}
                  ;; :vehicle-feel-color? true
-                }
+                 }
           :components
-            [;;
+            [ ;;
              [:cart/motor :ma
               {:anchor :bottom-right
                :corner-r 5
@@ -765,7 +795,17 @@
              ;;   :hot-temperature-sensor]}]
              ;; ----------------------------
              [:brain/neuron :arousal
-              {:on-update [(lib/->baseline-arousal 1)]}]
+              {:on-update [(lib/->baseline-arousal 1)]}
+              ;; {:on-update-map
+              ;;  {:arousal
+              ;;   (lib/every-now-and-then
+              ;;    1
+              ;;    (fn [e s k]
+              ;;      (update e
+              ;;              :activation
+              ;;              +
+              ;;              (lib/normal-distr 1 1))))}}
+              ]
              ;; ----------------------------
              [:brain/connection :_
               {:destination [:ref :ma]
@@ -777,6 +817,7 @@
                :f :excite
                :hidden? true
                :source [:ref :arousal]}]
+
              ;; ----------------------------
              [:brain/connection :love-wire1
               {:destination [:ref :ma]
@@ -787,56 +828,71 @@
               {:destination [:ref :mb]
                :f :excite
                :hidden? true
-               ;; :on-update-map
-               ;; {:gain (fn [e s k]
-               ;;          (assoc-in e
-               ;;                    [:transduction-model
-               ;;                    :gain]
-               ;;                    -10))}
                :source [:ref :sb]}]
+             ;; ----------------------------
+             [:brain/connection :aggression-wire1
+              {:destination [:ref :ma]
+               :f :excite
+               :hidden? true
+               :source [:ref :sb]}]
+             [:brain/connection :aggression-wire2
+              {:destination [:ref :mb]
+               :f :excite
+               :hidden? true
+               :source [:ref :sa]}]
              [:cart/entity :nodule
               {:f
-                 (fn []
-                   (->
-                     (lib/->entity :nodule {:hidden? true})
-                     (lib/live
-                      (lib/every-now-and-then
-                       5
-                       (fn [e s k]
-                         (swap! ray-source-hunger inc)
-                         e)))
-                     (lib/live
-                       (lib/every-now-and-then
-                         5
-                         (fn [e s k]
-                           (let [angry?
-                                   (< 1 @ray-source-hunger)
-                                 ;; (< 0
-                                 ;; (q/random-gaussian))
-                                 loving
-                                   (fn [s wire]
-                                     (assoc-in s
-                                       [:eid->entity
-                                        (:id wire)
-                                        :transduction-model
-                                        :gain]
-                                       (if angry? 10 -10)))]
-                             {:updated-state
-                                (->
-                                  s
-                                  (loving (:love-wire2 e))
-                                  (loving (:love-wire1 e))
-                                  (assoc-in
-                                    [:eid->entity (:body e)
-                                     :color]
-                                    (if angry?
-                                      (:deep-pink
-                                        defs/color-map)
-                                      (:green-yellow
-                                        defs/color-map))))}))))))
+               (fn []
+                 (->
+                  (lib/->entity :nodule {:hidden? true})
+                  (lib/live
+                   (lib/every-now-and-then
+                    5
+                    (fn [e s k]
+                      (swap! ray-source-hunger inc)
+                      {:updated-state
+                       (lib/append-ents
+                        s
+                        [(elib/->text
+                          {:color
+                           (:hit-pink
+                            defs/color-map)
+                           :lifetime 0.2
+                           :transform
+                           (lib/->transform
+                            (lib/position
+                             e)
+                            20
+                            20
+                            1)})])})))
+                  (lib/live
+                   (lib/every-now-and-then
+                    5
+                    (fn [e s k]
+                      (let [angry? (< 1 @ray-source-hunger)
+                            update-gain
+                            (fn [s wire gain]
+                              (assoc-in s [:eid->entity (:id (wire e)) :transduction-model :gain] gain))]
+                        {:updated-state
+                         (->
+                          s
+                          (update-gain :love-wire2 (if angry? 0 -10))
+                          (update-gain :love-wire1 (if angry? 0 -10))
+                          (update-gain :aggression-wire1 (if angry? 10 0))
+                          (update-gain :aggression-wire2 (if angry? 10 0))
+                          (assoc-in
+                           [:eid->entity (:body e)
+                            :color]
+                           (if angry?
+                             (:deep-pink
+                              defs/color-map)
+                             (:green-yellow
+                              defs/color-map))))}))))))
                ;; :love-wires
                ;; {:1 :love-wire1
                ;;  :2 :love-wire2}
+               :aggression-wire1 [:ref :aggression-wire1]
+               :aggression-wire2 [:ref :aggression-wire2]
                :love-wire1 [:ref :love-wire1]
                :love-wire2 [:ref :love-wire2]}]]})]
     cart))
@@ -1079,12 +1135,14 @@
 
 (defn vehicles
   [state]
-  (let [entities (mapcat identity
-                   (repeatedly 36 vehicle-1))]
+  (let [entities
+        (mapcat identity
+                (repeatedly 36 vehicle-1))
+        ]
     (-> state
         (lib/append-ents entities)
         ;; (+vehicle-field entities)
-        )))
+    )))
 
 (defn temperature-bubble
   ([] (temperature-bubble (lib/rand-on-canvas-gauss 0.2)))
@@ -1264,7 +1322,7 @@
   (swap! lib/event-queue (fnil conj []) add-ray-source)
   ;; (swap! lib/event-queue (fnil conj []) add-ray-source)
   ;; (swap! lib/event-queue (fnil conj []) add-ray-source)
-  (swap! lib/event-queue (fnil conj []) add-ray-source)
+  ;; (swap! lib/event-queue (fnil conj []) add-ray-source)
   ;;
 
   (swap! lib/event-queue (fnil conj []) vehicles)

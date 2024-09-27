@@ -459,3 +459,27 @@
        (swap! state sine-wave-update
          speed
          cycle-duration)))))
+
+(defn ->text
+  [opts]
+  (lib/->entity :text
+                (merge
+                  {:draw-functions
+                     {:f (fn [e]
+                           (def e e)
+                           (let [transform (:transform e)
+                                 [x y] (:pos transform)
+                                 {:keys [width height scale
+                                         rotation]}
+                                   transform]
+                             ;; (q/color-mode :rgb)
+                             ;; (q/color 0 255 0)
+                             (q/with-translation
+                               [x y]
+                               (q/with-rotation
+                                 [0
+                                  ;; rotation
+                                 ]
+                                 (q/text (:text e) 0 0)))))}
+                   :text "+"}
+                  opts)))

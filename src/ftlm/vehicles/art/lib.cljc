@@ -615,9 +615,8 @@
     (draw-color color)
     (let [drw (fn []
                 (draw-entity entity)
-                ;; (doall (map (fn [op] (op entity))
-                ;;             (vals draw-functions)))
-                )]
+                (doall (map (fn [op] (op entity))
+                            (vals draw-functions))))]
       (cond (:stroke entity)
             (q/with-stroke (->hsb (:stroke entity)) (drw))
             :else (drw)))))
