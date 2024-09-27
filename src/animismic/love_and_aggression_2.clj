@@ -1,4 +1,4 @@
-(ns animismic.love-and-aggression
+(ns animismic.love-and-aggression-2
   (:require
     [animismic.lib.particles :as p]
     [fastmath.core :as fm]
@@ -45,180 +45,27 @@
 (def min-drops 1)
 (def max-drops 30)
 
-(defn gen-raindrop
-  []
-  {:text (apply str
-           (map char
-             (repeatedly
-               ;; 25
-               (q/floor (/ (q/height) glyph-size))
-               #(rand-nth (concat (range 32 128)
-                                  (range 160 383)
-                                  ;; (range 880 1024)
-                                  ;; (range 8592 8600)
-                                  ;; (range 8704 8720)
-                          )))))
-   :raindrop? true
-   ;; (apply str (map char (repeatedly 25 #(+ 40
-   ;; (rand-int 260)))))
-   :index -1
-   :x (q/random 0 (q/width))
-   :eol true})
-
-(defn update-raindrop
-  [raindrop]
-  (let [next-index (inc (:index raindrop))
-        eol (>= next-index (count (:text raindrop)))]
-    (assoc raindrop
-           :index next-index
-           :eol eol)))
-
-(defn regen-raindrop [raindrop]
-  (if (and (:eol raindrop) (< (rand) 0.1))
-    (merge raindrop (gen-raindrop))
-    raindrop))
-
-(defn spawn-raindrop
-  [state]
-  (if (and (< (count state) max-drops)
-           (< -0.1 (q/random-gaussian)))
-    (cons (gen-raindrop) state)
-    state))
-
-(defn update-drops
-  [{:as state :keys [drops]}]
-
-
-  #_(when
-      ;; true
-      (and (< -0.1
-              (q/random-gaussian))
-           (< (or (ffirst (d/q '[:find (count ?e) :where
-                                 [?e :raindrop?]]
-                               @(:db-conn state)))
-                  0)
-              500))
-      (d/transact-async (:db-conn state)
-                        (into [] (repeatedly 5 ->rain-drop))))
-
-
-  (d/transact-async
-   (:db-conn state)
-   (into []
-         (for [e (map peek
-                      (d/q '[:find (pull ?e [*]) :where
-                             [?e :update]]
-                           (d/db (:db-conn state))))]
-           ((:update e) e))))
-  state
-  ;; (-> s
-  ;;     (update :drops
-  ;;             #(map (comp update-raindrop
-  ;;             regen-raindrop)
-  ;;                   %))
-  ;;     (update :drops spawn-raindrop))
-  )
-
-(defn ->rain-drop
-  []
-  (merge (gen-raindrop)
-         {:draw (fn [raindrop]
-                  (when-not (:eol raindrop)
-                    (do
-                      ;; (q/fill (rand-int 255)
-                      ;;         (rand-int 255)
-                      ;;         (rand-int 255))
-                      (q/fill [0 255 0])
-                      (when (< 0 (:index raindrop))
-                        (let [index (dec (:index
-                                          raindrop))
-                              c (.charAt ^String
-                                         (:text raindrop)
-                                         index)
-                              y (* glyph-size index)]
-                          (q/with-translation
-                              [(:x raindrop) y]
-                              (q/with-rotation
-                                  [q/PI]
-                                  (q/text (str c) 0 0))))))))
-          :update (comp update-raindrop regen-raindrop)}))
-
-(defn add-raindrops
-  [state]
-  (d/transact! (:db-conn state)
-               (into [] (repeatedly 1e2 #'->rain-drop)))
-  state)
 
 (defn draw-state
   [state]
   ;; (q/color-mode :hs)
-
   ;; (if (zero? (fm.rand/flip 0.5))
   ;;   (q/color-mode :rgb)
   ;;   (q/color-mode :hsb))
-  #_(q/background
-     (lib/->hsb (->
-                 state
-                 :controls
-                 :background-color))
-     ;; (lib/->hsb defs/white)
-     )
-
+  #_(q/background (lib/->hsb (-> state
+                                 :controls
+                                 :background-color))
+                  ;; (lib/->hsb defs/white)
+    )
   (q/color-mode :hsb)
-
-
-  (do
-
-    #_(when
-        false
-      ;; (zero? (fm.rand/flip 0.1))
-        (q/background
-         (lib/->hsb (->
-                     state
-                     :controls
-                     :background-color))
-         ;; (lib/->hsb defs/white)
-         ))
-
-    (q/stroke-weight 0)
-    (lib/draw-entities state))
-
-
-  ;; (q/fill 0 255 0 10)
-  ;; (println (q/width))
-  ;; (q/rect 0 0 (q/width) (q/height))
-
-  (q/color-mode :rgb)
-  (q/fill 0 0 0 50)
-  (q/rect 0 0 (* 2 2560) (* 2 1920))
-
-  ;; (q/fill 200 255 200)
-  #_(let [drops (:drops state)]
-      (doseq [raindrop drops]
-        (when-not (:eol raindrop)
-          (do
-            (q/fill (rand-int 255)
-                    (rand-int 255)
-                    (rand-int 255))
-            (when (< 0 (:index raindrop))
-              (let [index (dec (:index raindrop))
-                    c (.charAt ^String (:text raindrop) index)
-                    y (* glyph-size index)]
-                (q/with-translation
-                    [(:x raindrop) y]
-                    (q/with-rotation
-                        [q/PI]
-                        (q/text (str c) 0 0)))))))))
-
-
-  (doseq
-      [e (map
-          peek
-          (d/q
-           '[:find (pull ?e [*])
-             :where [?e :draw]]
-           (d/db (:db-conn state))))]
-      ((:draw e) e)))
+  (do (when true
+        (q/background (lib/->hsb (-> state
+                                     :controls
+                                     :background-color))
+                      ;; (lib/->hsb defs/white)
+        ))
+      (q/stroke-weight 0)
+      (lib/draw-entities state)))
 
 (defn update-entity
   [entity state env]
@@ -264,11 +111,7 @@
                      ;; also heavy:
                      lib/update-collisions
                      ;;
-                     phy/physics-update-2d
-                     ;; -----------------
-                     update-drops
-
-                     ))]
+                     phy/physics-update-2d))]
     (merge state new-state)))
 
 (defn update-state
@@ -388,71 +231,66 @@
                    wave-value (* fade-factor
                                  (+ x (* lib/*dt* speed)))]
                wave-value)))]
-    (assoc e :intensity (+ 10 (* 30 (:intensity-factor e))))))
+    (assoc e
+           :intensity (+ 5 (* 10 (:intensity-factor e))))))
 
 
 (defn ->ray-source
   ([] (->ray-source (lib/mid-point)))
   ([pos]
    (let [[e] (lib/->ray-source
-              {:color (:white defs/color-map)
-               :transform (lib/->transform (lib/rand-on-canvas-gauss 0.2) 10 10 1)
-               :intensity 5
-               :intensity-factor 1
-               :kinetic-energy 1
-
-               ;; :mass 1e5
-
-               :on-collide-map
-               {:burst (lib/cooldown (fn [] (lib/normal-distr 2 2)) lib/burst)}
-               :on-double-click-map
-               {:orient-towards-me
-                (fn [e s k]
-                  {:updated-state
-                   (lib/update-ents
-                    s
-                    (fn [ent]
-                      (lib/orient-towards
-                       ent
-                       (lib/position e))))})}
-               :on-drag-start-map
-               {:survive (fn [e s k]
-                           (dissoc e :lifetime))}
-               :particle? true
-               :pos pos
-               :scale 0.75
-               :shinyness nil}
-              )]
-
+               {:color (:white defs/color-map)
+                :intensity 30
+                :intensity-factor 1
+                :kinetic-energy 1
+                ;; :mass 1e5
+                :on-collide-map
+                {:burst (lib/cooldown 5 lib/burst)}
+                :on-double-click-map
+                {:orient-towards-me
+                 (fn [e s k]
+                   {:updated-state
+                    (lib/update-ents
+                     s
+                     (fn [ent]
+                       (lib/orient-towards
+                        ent
+                        (lib/position e))))})}
+                :on-drag-start-map
+                {:survive (fn [e s k]
+                            (dissoc e :lifetime))}
+                :particle? true
+                :pos pos
+                :scale 0.75
+                :shinyness nil})]
      (->
       e
-      (lib/live (lib/every-now-and-then 1 (fn [e s k] (assoc-in e [:transform :scale] 1))))
 
       #_(lib/live
-         [:rays
-          (lib/every-n-seconds
-           (fn [] (lib/normal-distr 1 1))
-           (fn [e s _]
-             {:updated-state
-              (let [bodies (into []
-                                 (filter :block?
-                                         (lib/entities s)))]
-                (let [bodies (take 5 (shuffle
-                                      bodies))]
-                  (reduce
-                   (fn [s b]
-                     (->
-                      s
-                      (lib/append-ents
-                       [(merge
-                         (lib/->connection-bezier-line
-                          e
-                          b)
-                         {:lifetime (lib/normal-distr
-                                     2
-                                     1)})])))
-                   s
-                   bodies)))}))])
+       [:rays
+        (lib/every-n-seconds
+         (fn [] (lib/normal-distr 1 1))
+         (fn [e s _]
+           {:updated-state
+            (let [bodies (into []
+                               (filter :block?
+                                       (lib/entities s)))]
+              (let [bodies (take 5 (shuffle
+                                    bodies))]
+                (reduce
+                 (fn [s b]
+                   (->
+                    s
+                    (lib/append-ents
+                     [(merge
+                       (lib/->connection-bezier-line
+                        e
+                        b)
+                       {:lifetime (lib/normal-distr
+                                   2
+                                   1)})])))
+                 s
+                 bodies)))}))])
 
 
 
@@ -576,91 +414,91 @@
 
 
       #_(lib/live
-         [:circular-shine-field
-          (lib/every-n-seconds
-           (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
-           (fn [ray s k]
-             {:updated-state
-              (lib/append-ents
-               s
-               [(let [e (lib/->circular-shine-1 ray)]
-                  (-> e
-                      (assoc
-                       :color
-                       ((rand-nth
-                         [
-                          :black
-                          :hit-pink
-                          :white
+       [:circular-shine-field
+        (lib/every-n-seconds
+         (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
+         (fn [ray s k]
+           {:updated-state
+            (lib/append-ents
+             s
+             [(let [e (lib/->circular-shine-1 ray)]
+                (-> e
+                    (assoc
+                     :color
+                     ((rand-nth
+                       [
+                        :black
+                        :hit-pink
+                        :white
 
-                          ;; :white
-                          ])
-                        defs/color-map))
-                      (lib/live
-                       (fn [e s k]
-                         (->
-                          e
-                          (update-in [:transform :scale] * 1.1 )
-                          #_(assoc-in  [:color]
-                                       ((rand-nth
-                                         [
+                        ;; :white
+                        ])
+                      defs/color-map))
+                    (lib/live
+                     (fn [e s k]
+                       (->
+                        e
+                        (update-in [:transform :scale] * 1.1 )
+                        #_(assoc-in  [:color]
+                                     ((rand-nth
+                                       [
 
-                                          ;; :black
-                                          :hit-pink
-                                          :cyan
-                                          ;; :deep-pink
-                                          ;; :white
-                                          ])
-                                        defs/color-map)))))
-
-
-
-                      (lib/live
-                       (lib/every-n-seconds 0.1
-                                            (fn [e s k]
-                                              (->
-                                               e
-                                               (assoc-in [:color] ((rand-nth [:black :white]) defs/color-map))))))
+                                        ;; :black
+                                        :hit-pink
+                                        :cyan
+                                        ;; :deep-pink
+                                        ;; :white
+                                        ])
+                                      defs/color-map)))))
 
 
-                      (assoc :lifetime (lib/normal-distr 2 (Math/sqrt 2)))))])}))])
+
+                    (lib/live
+                     (lib/every-n-seconds 0.1
+                                          (fn [e s k]
+                                            (->
+                                             e
+                                             (assoc-in [:color] ((rand-nth [:black :white]) defs/color-map))))))
+
+
+                    (assoc :lifetime (lib/normal-distr 2 (Math/sqrt 2)))))])}))])
 
 
       #_(lib/live
-         [:circular-shine-field-1
-          (lib/every-n-seconds
-           (fn [] (lib/normal-distr 1 1))
-           (fn [ray s k]
-             {:updated-state
-              (lib/append-ents
-               s
-               [(let [e (lib/->circular-shine-1 ray)]
-                  (-> e
-                      (assoc :color
-                             ((rand-nth
-                               [
-                                :black
-                                :white
-                                ])
-                              defs/color-map))
+       [:circular-shine-field-1
+        (lib/every-n-seconds
+         (fn [] (lib/normal-distr 1 1))
+         (fn [ray s k]
+           {:updated-state
+            (lib/append-ents
+             s
+             [(let [e (lib/->circular-shine-1 ray)]
+                (-> e
+                    (assoc :color
+                           ((rand-nth
+                             [
+                              :black
+                              :white
+                              ])
+                            defs/color-map))
 
-                      (lib/live
-                       (lib/every-n-seconds
-                        1
-                        (fn [e s k]
-                          (->
-                           e
-                           (update-in [:transform :scale] * 1.2 )
-                           )))
-                       )
+                    (lib/live
+                     (lib/every-n-seconds
+                      1
+                      (fn [e s k]
+                        (->
+                         e
+                         (update-in [:transform :scale] * 1.2 )
+                         )))
+                     )
 
 
-                      (assoc
-                       :lifetime
-                       (lib/normal-distr
-                        5
-                        (Math/sqrt
-                         2)))))])}))])
+                    (assoc
+                     :lifetime
+                     (lib/normal-distr
+                      5
+                      (Math/sqrt
+                       2)))))])}))])
       ;; (lib/live [:intensity-osc update-intensity-osc])
       ))))
 
@@ -674,128 +512,195 @@
   []
   (let [cart
           (cart/->cart
-           {:body
-            {:color (:cyan defs/color-map)
-             :scale 1
-             :hidden? true
-             ;; :mass 100
-             ;; :particle? true
-             ;; :kinetic-energy 0.1
-             ;; :moment-of-inertia 1000
-             :stroke-weight 0
-             ;; :on-update-map
-             #_{:flash1
-                (lib/every-n-seconds
-                 (fn [] (lib/normal-distr 5 1))
-                 (fn [e s k]
-                   (activation-flash
-                    e
-                    (:color e)
-                    (defs/color-map
-                      (rand-nth [:cyan
-                                 :deep-pink]))
-                    (fn [ent]
-                      (assoc ent
-                             :color (:coloor e))))))}
-             ;; :on-update-map
-             ;; {:color-aggression
-             ;;  (fn [e s k]
-             ;;    (assoc
-             ;;       (if (< 0.5 @aggression)
-             ;;         :deep-pink
-             ;;         :white
-             ;;         ))))}
-             ;; :vehicle-feel-color? true
-             }
-            :components
-            [[:cart/entity :_
-              {:f (fn []
-                    (lib/->entity :circle
-                                  {:anchor-position [0 0]
-                                   :color defs/white
-                                   :transform
-                                   (lib/->transform
-                                    [0 0]
-                                    5
-                                    5
-                                    1)}))}]
-             ;;
-             [:cart/motor :ma
-              {:anchor :bottom-right
-               :corner-r 5
-               :hidden? true
-               :on-update [(lib/->cap-activation)]
-               :rotational-power 0.02}]
-             [:cart/motor :mb
-              {:anchor :bottom-left
-               :corner-r 5
-               :hidden? true
-               :on-update [(lib/->cap-activation)]
-               :rotational-power 0.02}]
-             ;; ---------------
-             [:cart/sensor :sa
-              {:anchor :top-right
-               :hidden? true
-               :modality :rays}]
-             [:cart/sensor :sb
-              {:anchor :top-left
-               :hidden? true
-               :modality :rays}]
-             [:cart/sensor :hot-temperature-sensor
-              {:anchor :middle-middle
-               :hidden? true
-               :hot-or-cold :hot
-               :modality :temperature}]
-             ;; ------------------------------
-             ;; [:brain/connection :_
-             ;;  {:decussates? false
-             ;;   :destination [:ref :mb]
-             ;;   :f :excite
-             ;;   :hidden? true
-             ;;   :source [:ref
-             ;;   :hot-temperature-sensor]}]
-             ;; [:brain/connection :_
-             ;;  {:decussates? false
-             ;;   :destination [:ref :ma]
-             ;;   :f :excite
-             ;;   :hidden? true
-             ;;   :source [:ref
-             ;;   :hot-temperature-sensor]}]
-             ;; ----------------------------
-             [:brain/neuron :arousal
-              {:on-update [(lib/->baseline-arousal 1)]}]
-             ;; ----------------------------
-             [:brain/connection :_
-              {:destination [:ref :ma]
-               :f :excite
-               :hidden? true
-               :source [:ref :arousal]}]
-             [:brain/connection :_
-              {:destination [:ref :mb]
-               :f :excite
-               :hidden? true
-               :source [:ref :arousal]}]
-             ;; ----------------------------
-             [:brain/connection :_
-              {:destination [:ref :ma]
-               :f :excite
-               :hidden? true
-               :on-update-map
-               {:gain (fn [e s k]
-                        (assoc-in e
-                                  [:transduction-model :gain]
-                                  -10))}
-               :source [:ref :sa]}]
-             [:brain/connection :_
-              {:destination [:ref :mb]
-               :f :excite
-               :hidden? true
-               :on-update-map
-               {:gain (fn [e s k]
-                        (assoc-in e
-                                  [:transduction-model :gain]
-                                  -10))}
-               :source [:ref :sb]}]]})]
+            {:body {:color (:cyan defs/color-map)
+                    :scale 0.5
+
+                    ;; :mass 100
+                    ;; :particle? true
+                    ;; :kinetic-energy 0.1
+                    ;; :moment-of-inertia 1000
+
+                    :stroke-weight 0
+
+                    ;; :on-update-map
+
+                    #_{:flash1
+                       (lib/every-n-seconds
+                        (fn [] (lib/normal-distr 5 1))
+                        (fn [e s k]
+                          (activation-flash
+                           e
+                           (:color e)
+                           (defs/color-map (rand-nth [:cyan :deep-pink]))
+                           (fn [ent]
+                             (assoc ent
+                                    :color
+                                    (:coloor e))))))}
+
+                    ;; :on-update-map
+                    ;; {:color-aggression
+                    ;;  (fn [e s k]
+                    ;;    (assoc
+
+                    ;;       (if (< 0.5 @aggression)
+                    ;;         :deep-pink
+                    ;;         :white
+                    ;;         ))))}
+                    ;; :vehicle-feel-color? true
+                    }
+             :components
+               [[:cart/motor :ma
+                 {:anchor :bottom-right
+                  :corner-r 5
+                  :hidden? true
+                  :on-update [(lib/->cap-activation)]
+                  :rotational-power 0.02}]
+                [:cart/motor :mb
+                 {:anchor :bottom-left
+                  :corner-r 5
+                  :hidden? true
+                  :on-update [(lib/->cap-activation)]
+                  :rotational-power 0.02}]
+                ;; ---------------
+                [:cart/sensor :sa
+                 {:anchor :top-right :modality :rays}]
+                [:cart/sensor :sb
+                 {:anchor :top-left :modality :rays}]
+                ;; ----------------
+                ;; Temperature sensor
+                [:cart/sensor :hot-temperature-sensor
+                 {:anchor :middle-middle
+                  :hot-or-cold :hot
+                  :modality :temperature}]
+                ;; ----------------------------
+                [:brain/neuron :arousal
+                 {:arousal-neuron? true
+                  ;; :on-update [(lib/->baseline-arousal 1)]
+                  }]
+                ;; ----------------------------
+                #_[:brain/connection :_
+                 {:destination [:ref :ma]
+                  :f :excite
+                  :hidden? true
+                  ;; :on-update-map
+                  ;; {:gain
+                  ;;  (lib/every-n-seconds
+                  ;;   (fn [] (lib/normal-distr 1 1))
+                  ;;   (fn [e s k]
+                  ;;     (assoc-in
+                  ;;      e [:transduction-model :gain]
+                  ;;      (+ 1 (/ (rand) 2)))))}
+                  :source [:ref :arousal]}]
+                #_[:brain/connection :_
+                 {:destination [:ref :mb]
+                  :f :excite
+                  :hidden? true
+                  ;; :on-update-map
+                  ;; {:gain
+                  ;;  (lib/every-n-seconds
+                  ;;   (fn [] (lib/normal-distr 1 1))
+                  ;;   (fn [e s k]
+                  ;;     (assoc-in
+                  ;;      e
+                  ;;      [:transduction-model :gain]
+                  ;;      (+ 1 (/ (rand) 2))
+                  ;;      )))}
+                  :source [:ref :arousal]}]
+                ;; ----------------------------
+
+                [:brain/connection :_
+                   {:decussates? false
+                    :destination [:ref :ma]
+                    :f :excite
+                    :gain -10
+                    ;; :f (lib/->weighted -10)
+
+                    ;; :on-update-map
+                    ;; {:gain
+                    ;;  (lib/every-n-seconds
+                    ;;   (fn [] (lib/normal-distr 1 1))
+                    ;;   (fn [e s k]
+                    ;;     (assoc-in e
+                    ;;               [:transduction-model :gain]
+                    ;;               -10
+                    ;;               ;; (* -20 (- 1 (/
+                    ;;               ;; @aggression 5)))
+                    ;;               )))}
+
+
+                    :hidden? true
+                    :source [:ref :sa]}]
+
+
+                [:brain/connection :_
+                   {:decussates? false
+                    :destination [:ref :mb]
+                    ;; :f (lib/->weighted -10)
+                    :f :excite
+                    :gain -10
+
+                    ;; :on-update-map
+                    ;; {:gain (lib/every-n-seconds
+                    ;;         (fn [] (lib/normal-distr 1 1))
+                    ;;         (fn [e s k]
+                    ;;           (assoc-in e
+                    ;;                     [:transduction-model :gain]
+                    ;;                     -10
+                    ;;                     ;; (* -20 (- 1 (/
+                    ;;                     ;; @aggression 5)))
+                    ;;                     )))}
+                    :hidden? true
+                    :source [:ref :sb]}]
+
+
+                ;; ----------------------------
+
+
+                ;; [:brain/connection :_
+                ;;  {:decussates? false
+                ;;   :destination [:ref :mb]
+                ;;   :f :excite
+                ;;   :hidden? true
+                ;;   :source [:ref :hot-temperature-sensor]}]
+                ;; [:brain/connection :_
+                ;;  {:decussates? false
+                ;;   :destination [:ref :ma]
+                ;;   :f :excite
+                ;;   :hidden? true
+                ;;   :source [:ref :hot-temperature-sensor]}]
+
+
+                ;; ----------------------------
+                ;; [:brain/connection :_
+                ;;  {:decussates? true
+                ;;   :destination [:ref :ma]
+                ;;   :f :excite
+                ;;   :hidden? true
+                ;;   :on-update-map
+                ;;   {:gain
+                ;;    (lib/every-n-seconds
+                ;;     (fn [] (lib/normal-distr 1 1))
+                ;;     (fn [e s k]
+                ;;       (assoc-in
+                ;;        e [:transduction-model :gain]
+                ;;        (/ @aggression 2))))}
+                ;;   :source [:ref :sb]}]
+                ;; [:brain/connection :_
+                ;;  {:decussates? true
+                ;;   :destination [:ref :mb]
+                ;;   :f :excite
+                ;;   :hidden? true
+                ;;   :on-update-map
+                ;;   {:gain
+                ;;    (lib/every-n-seconds
+                ;;     (fn [] (lib/normal-distr 1 1))
+                ;;     (fn [e s k]
+                ;;       (assoc-in
+                ;;        e [:transduction-model :gain]
+                ;;        (/ @aggression 2))))}
+                ;;   :source [:ref :sa]}]
+                ;; ----------------------------
+                ]})]
     cart))
 
 (defn ->vehicle-field-1
@@ -880,28 +785,33 @@
   (-> state
       (lib/append-ents [(->vehicle-field entities)])))
 
-(defn ->confettini
-  []
-  {:kind (rand-nth [:circle :rect])
-   :color (defs/color-map (rand-nth [:hit-pink :deep-pink
-                                     :green-yellow :white
-                                     :cyan]))
-   :block? true
-   :mass 100
-   :moment-of-inertia 1000
-   ;; :collides? true
-   :on-collide-map {:die (fn [e other s k]
-                           (assoc e :lifetime 1))}
-   ;; :particle? true
-   ;; :kinetic-energy 1
-   :transform (lib/->transform [0 0]
-                               ;; (lib/rand-on-canvas-gauss
-                               ;; 0.5)
-                               20
-                               50
-                               1)})
+(defn candy []
+  (lib/->entity
+   (rand-nth
+    [:circle :rect])
+   {:color (defs/color-map
+             (rand-nth [:hit-pink :deep-pink
+                        :green-yellow :white
+                        :cyan]))
+    :block? true
+    :mass 100
+    :moment-of-inertia 1000
+    ;; :collides? true
+    :on-collide-map
+    {:die
+     (fn [e other s k]
+       (assoc e :lifetime 1))}
 
-(defn confettini [] (lib/->entity :_ (->confettin)))
+    ;; :particle? true
+    ;; :kinetic-energy 1
+    :transform (lib/->transform
+                (lib/rand-on-canvas-gauss 0.5)
+                20
+                50
+                1)})
+
+
+  )
 
 (defn setup-internal
   [state]
@@ -910,17 +820,6 @@
    state
 
 
-
-   (assoc
-    :db-conn
-    (let [schema
-          {:components
-           {:db/cardinality :db.cardinality/many
-            :db/valueType :db.type/ref}}
-          conn (d/create-conn schema)]
-      conn))
-
-   ;; add-raindrops
 
    #_(lib/append-ents
       (repeatedly
@@ -947,16 +846,11 @@
 
 (defmethod lib/setup-version :vehicle-1
   [state]
-  (merge
-   (setup-internal state)
-   {:drops (repeatedly min-drops gen-raindrop)}))
+  (setup-internal state))
 
 
 (comment
-
   (swap! lib/event-queue (fnil conj []) add-ray-source)
-
-
   (swap! lib/event-queue (fnil conj []) setup-internal)
   (swap! lib/event-queue (fnil conj [])
          (fn [s]
@@ -1042,8 +936,7 @@
                    (repeatedly 36 vehicle-1))]
     (-> state
         (lib/append-ents entities)
-        ;; (+vehicle-field entities)
-        )))
+        (+vehicle-field entities))))
 
 (defn temperature-bubble
   ([] (temperature-bubble (lib/rand-on-canvas-gauss 0.2)))
@@ -1152,7 +1045,8 @@
     true)
 
    (lib/live
-    [:spawn-ray-source
+    [
+     :spawn-ray-source
      (lib/every-n-seconds
       1
       (fn [e s k]
@@ -1160,16 +1054,19 @@
          (lib/append-ents
           s
           (for [other (into []
-                            (filter lib/validate-entity)
+                            (filter
+                             lib/validate-entity)
                             (filter :spawner?
                                     (lib/entities s)))]
             (let [a e
                   b other]
               (merge (lib/->connection-bezier-line a b)
-                     {:color (lib/->hsb (:hit-pink
-                                         defs/color-map))
-                      :lifetime
-                      (lib/normal-distr 2 1)}))))}))])
+                     {:color (lib/->hsb
+                              (:hit-pink
+                               defs/color-map))
+                      :lifetime (lib/normal-distr
+                                 2
+                                 1)}))))}))])
 
    (lib/live
     [:spawn
@@ -1221,15 +1118,12 @@
   ;;
   ;;
   (swap! lib/event-queue (fnil conj []) add-ray-source)
-  ;; (swap! lib/event-queue (fnil conj []) add-ray-source)
-  ;; (swap! lib/event-queue (fnil conj []) add-ray-source)
-  (swap! lib/event-queue (fnil conj []) add-ray-source)
   ;;
 
-  (swap! lib/event-queue (fnil conj []) vehicles)
-
-
   ;; (swap! lib/event-queue (fnil conj []) vehicles)
+
+
+  (swap! lib/event-queue (fnil conj []) vehicles)
 
 
 
@@ -1355,7 +1249,7 @@
 
   (swap! lib/event-queue (fnil conj [])
          (fn [s]
-           (lib/update-ents s (fn [e] (assoc e :update-colors1? true)))))
+           (lib/update-ents s (fn [e] (assoc e :update-colors1? true))))))
 
 
 
@@ -1366,122 +1260,170 @@
 
 
 
-  (def conn
-    (let [schema {:components {:db/cardinality
-                               :db.cardinality/many
-                               :db/valueType :db.type/ref}
-                  ;; :line/bias   {:db/valueType
-                  ;; :db.type/double}
-                  :line/source {:db/valueType :db.type/ref}
-                  :line/target {:db/valueType :db.type/ref}
-                  ;; :line/weight {:db/valueType
-                  ;; :db.type/double}
-                  }
-          conn (d/create-conn schema)]
-      conn))
-
-  (dotimes [_ 500]
-    (d/transact!
-     conn
-     [{:body? true
-       :transform/mass 100
-       :transform/position [0 0]}
-      ;; {:db/id "s" :sensor? true}
-      ;; {:line/source "s"
-      ;;  :line/target "m"}
-      ;; {:db/id "m" :motor? true}
-      ]))
 
 
 
-  ;; Define a transaction function
-  #_(defn update-line-weight [db line-id weight]
-      (let [line (d/entity db line-id)]
-        (if (and (:sensor? (:line/source line))
-                 (:motor? (:line/target line)))
-          [{:db/id line-id :line/weight weight}]
-          [])))
 
-  #_(d/transact! conn (update-line-weight db "line-id" 2.5))
+(comment
 
-  ;; Define a rule for adding a weight to a connection between a sensor and a motor
+  (require '[datascript.core :as d])
 
-  #_{:rules '[[(add-weight ?line ?weight)
-               [?line :line/source ?source]
-               [?line :line/target ?target]
-               [?source :sensor? true]
-               [?target :motor? true]
-               (not [?line :line/weight _])]
-              [(identity ?weight 1.0)]]}
+  ;; Implicit join, multi-valued attribute
 
 
 
-  ;; Default weight is 1.0 if not specified
+  (let [schema {:aka {:db/cardinality :db.cardinality/many}}
+        conn (d/create-conn schema)]
+    (d/transact! conn
+                 [{:age 45
+                   :aka ["Max Otto von Stierlitz" "Jack Ryan"]
+                   :db/id -1
+                   :name "Maksim"}])
+    (d/q '[:find ?n ?a :where
+           [?e :aka "Max Otto von Stierlitz"] [?e :name ?n]
+           [?e :age ?a]]
+         @conn))
 
-  ;; Use the rule to transform data
+
+  (let [schema {:aka {:db/cardinality :db.cardinality/many}}
+      conn (d/create-conn schema)]
   (d/transact! conn
-               (add-weight :line))
+               [{:age 45
+                 :aka ["Max Otto von Stierlitz" "Jack Ryan"]
+                 :db/id -1
+                 :name "Maksim"}
+                {:age 10
+                 :name "alice"}])
+  (d/q '[:find ?n ?a :where [?e :name ?n] [?e :age ?a]]
+       @conn))
 
 
+
+
+
+
+
+
+
+
+
+
+  ;; => #{ ["Maksim" 45] }
+
+
+  ;; Destructuring, function call, predicate call, query over collection
+
+  (d/q '[ :find  ?k ?x
+         :in    [[?k [?min ?max]] ...] ?range
+         :where [(?range ?min ?max) [?x ...]]
+         [(even? ?x)] ]
+       { :a [1 7], :b [2 4] }
+       range)
+
+  ;; => #{ [:a 2] [:a 4] [:a 6] [:b 2] }
+
+
+  ;; Recursive rule
+
+  (d/q
+   '[:find ?u1 ?u2
+     :in $ %
+     :where (follows ?u1 ?u2)]
+   [[1 :follows 2]
+    [2 :follows 3]
+    [3 :follows 4]]
+
+   '[[(follows ?e1 ?e2) [?e1 :follows ?e2]]
+     [(follows ?e1 ?e2) [?e1 :follows ?t]
+      (follows ?t ?e2)]])
+
+
+
+  ;; => #{ [1 2] [1 3] [1 4]
+  ;;       [2 3] [2 4]
+  ;;       [3 4] }
+
+
+
+  (d/q
+   '[:find ?a ?b
+     :in $ % [[?a ?b]]
+     :where (follows ?a ?b)]
+
+   [[1 :follows 2]
+    [2 :follows 3]
+    [3 :follows 4]]
+
+   '[[(follows ?e1 ?e2)
+      [?e1 :follows ?e2]]
+     [(follows ?e1 ?e2)
+      [?e1 :follows ?t]
+      (follows ?t ?e2)]]
+   {1 2})
+
+
+
+
+
+
+
+  ;; Aggregates
+
+
+  (d/q '[:find ?color (max ?amount ?x) (min ?amount ?x) :in
+         [[?color ?x]] ?amount]
+       [[:red 10]
+        [:red 20]
+        [:red 30]
+        [:red 40]
+        [:red 50]
+        [:blue 7]
+        [:blue 8]]
+       3)
+
+
+  (d/q '[:find
+         ?color
+         (max ?amount ?x)
+         (min ?amount ?x)
+         :in [[?color ?x]] ?amount]
+       [[:red 10]
+        [:red 20]
+        [:red 30]
+        [:red 40]
+        [:red 50]
+        [:blue 7]
+        [:blue 8]]
+       2)
 
 
 
 
   (d/q
-   '[:find (pull ?e [*]) ?source
-     :where [?source :line/target ?e]]
-   @conn)
+   '[:find
+     ?id
+     (max ?amount ?v)
+     :in
+     [[?id ?v]]
+     ?amount]
+   (into []
+         (map (juxt :id :velocity) (lib/entities @lib/the-state)))
+   1)
 
-  (d/q
-   '[:find (pull ?e [*]) :where [?e :line/target ?t]]
-   @conn)
-
-
-  (d/q
-   '[:find (count ?pos)
-     :where
-     [?e :transform/mass]
-     [?e :transform/position ?pos]]
-   @conn)
-
-  (defn pull-ents
-    [] (into [] (map second
-                     (d/q
-                      '[:find
-                        ?e ?pos
-                        ;; (pull ?e [:transform/position])
-                        :where
-                        [?e :transform/mass]
-                        [?e :transform/position ?pos]]
-                      @conn))))
-  (time (pull-ents))
-  (time (into
-         []
-         (comp
-          (filter :mass)
-          (map lib/position))
-         entities))
-
-
-  (d/q
-   '[:find ?pos .
-     :where [?e :transform/position ?pos]]
-   @conn)
-
-
-  (d/q
-   '[:find [?pos ...]
-     :where [?e :transform/position ?pos]]
-   @conn)
-
-
-  (lib/append-ents {} (repeatedly 500 ->confettini))
-  (def entities (repeatedly 1e3 ->confettini))
+  (let [schema {:aka {:db/cardinality :db.cardinality/many}}
+        conn (d/create-conn schema)]
+    (d/transact! conn
+                 [{:age 45
+                   :aka ["Max Otto von Stierlitz" "Jack Ryan"]
+                   :db/id -1
+                   :name "Maksim"}])
+    (d/q '[:find ?n ?a :where
+           [?e :aka "Max Otto von Stierlitz"] [?e :name ?n]
+           [?e :age ?a]]
+         @conn))
 
 
 
-
-
-
-
+  ;; => [[:red  [30 40 50] [10 20 30]]
+  ;;     [:blue [7 8] [7 8]]]
   )

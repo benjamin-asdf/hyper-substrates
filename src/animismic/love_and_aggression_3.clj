@@ -1,45 +1,47 @@
-(ns animismic.love-and-aggression
+(ns animismic.love-and-aggression-3
   (:require
-    [animismic.lib.particles :as p]
-    [fastmath.core :as fm]
-    [clojure.java.io :as io]
-    [clojure.string :as str]
-    [clojure.data.json :as json]
-    [quil.middleware :as m]
-    [ftlm.vehicles.art.lib :refer [*dt*] :as lib]
-    [ftlm.vehicles.art.defs :as defsc]
-    [ftlm.vehicles.art.extended :as elib]
-    [tech.v3.datatype.unary-pred :as unary-pred]
-    [tech.v3.datatype.functional :as f]
-    [tech.v3.datatype :as dtype]
-    [tech.v3.tensor :as dtt]
-    [quil.core :as q]
-    [ftlm.vehicles.art.defs :as defs]
-    [tech.v3.datatype.functional :as f]
-    [tech.v3.datatype :as dtype]
-    [tech.v3.tensor :as dtt]
-    [tech.v3.datatype.bitmap :as bitmap]
-    [fastmath.random :as fm.rand]
-    ;; [bennischwerdtner.hd.binary-sparse-segmented :as
-    ;; hd]
-    [bennischwerdtner.hd.core :as hd]
-    [bennischwerdtner.pyutils :as pyutils]
-    [tech.v3.datatype.unary-pred :as unary-pred]
-    [tech.v3.datatype.argops :as dtype-argops]
-    [bennischwerdtner.sdm.sdm :as sdm]
-    [bennischwerdtner.hd.item-memory :as item-memory]
-    [bennischwerdtner.hd.impl.item-memory-torch :as
-     item-memory-torch]
-    [bennischwerdtner.hd.codebook-item-memory :as codebook]
-    [bennischwerdtner.hd.ui.audio :as audio]
-    [bennischwerdtner.hd.data-next :as hdd]
-    [ftlm.vehicles.art.physics :as phy]
-    [animismic.lib.blerp :as b]
-    [animismic.lib.particles-core :as pe]
-    [ftlm.vehicles.cart :as cart]
-    [animismic.lib.vehicles :as v]
-    [libpython-clj2.require :refer [require-python]]
-    [libpython-clj2.python :refer [py. py..] :as py]))
+   [animismic.lib.particles :as p]
+   [fastmath.core :as fm]
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [clojure.data.json :as json]
+   [quil.middleware :as m]
+   [ftlm.vehicles.art.lib :refer [*dt*] :as lib]
+   [ftlm.vehicles.art.defs :as defsc]
+   [ftlm.vehicles.art.extended :as elib]
+   [tech.v3.datatype.unary-pred :as unary-pred]
+   [tech.v3.datatype.functional :as f]
+   [tech.v3.datatype :as dtype]
+   [tech.v3.tensor :as dtt]
+   [quil.core :as q]
+   [datascript.core :as d]
+
+   [ftlm.vehicles.art.defs :as defs]
+   [tech.v3.datatype.functional :as f]
+   [tech.v3.datatype :as dtype]
+   [tech.v3.tensor :as dtt]
+   [tech.v3.datatype.bitmap :as bitmap]
+   [fastmath.random :as fm.rand]
+   ;; [bennischwerdtner.hd.binary-sparse-segmented :as
+   ;; hd]
+   [bennischwerdtner.hd.core :as hd]
+   [bennischwerdtner.pyutils :as pyutils]
+   [tech.v3.datatype.unary-pred :as unary-pred]
+   [tech.v3.datatype.argops :as dtype-argops]
+   [bennischwerdtner.sdm.sdm :as sdm]
+   [bennischwerdtner.hd.item-memory :as item-memory]
+   [bennischwerdtner.hd.impl.item-memory-torch :as
+    item-memory-torch]
+   [bennischwerdtner.hd.codebook-item-memory :as codebook]
+   [bennischwerdtner.hd.ui.audio :as audio]
+   [bennischwerdtner.hd.data-next :as hdd]
+   [ftlm.vehicles.art.physics :as phy]
+   [animismic.lib.blerp :as b]
+   [animismic.lib.particles-core :as pe]
+   [ftlm.vehicles.cart :as cart]
+   [animismic.lib.vehicles :as v]
+   [libpython-clj2.require :refer [require-python]]
+   [libpython-clj2.python :refer [py. py..] :as py]))
 
 (def glyph-size 18)
 (def min-drops 1)
@@ -397,14 +399,19 @@
    (let [[e] (lib/->ray-source
               {:color (:white defs/color-map)
                :transform (lib/->transform (lib/rand-on-canvas-gauss 0.2) 10 10 1)
-               :intensity 5
+               :intensity 20
                :intensity-factor 1
                :kinetic-energy 1
 
                ;; :mass 1e5
 
                :on-collide-map
-               {:burst (lib/cooldown (fn [] (lib/normal-distr 2 2)) lib/burst)}
+               {:burst
+                (lib/cooldown
+                 (fn [] (lib/normal-distr 2 2))
+                 lib/burst)
+
+                }
                :on-double-click-map
                {:orient-towards-me
                 (fn [e s k]
@@ -672,54 +679,49 @@
 
 (defn vehicle-1
   []
-  (let [cart
-          (cart/->cart
-           {:body
-            {:color (:cyan defs/color-map)
-             :scale 1
-             :hidden? true
-             ;; :mass 100
-             ;; :particle? true
-             ;; :kinetic-energy 0.1
-             ;; :moment-of-inertia 1000
-             :stroke-weight 0
-             ;; :on-update-map
-             #_{:flash1
-                (lib/every-n-seconds
-                 (fn [] (lib/normal-distr 5 1))
-                 (fn [e s k]
-                   (activation-flash
-                    e
-                    (:color e)
-                    (defs/color-map
-                      (rand-nth [:cyan
-                                 :deep-pink]))
-                    (fn [ent]
-                      (assoc ent
-                             :color (:coloor e))))))}
-             ;; :on-update-map
-             ;; {:color-aggression
-             ;;  (fn [e s k]
-             ;;    (assoc
-             ;;       (if (< 0.5 @aggression)
-             ;;         :deep-pink
-             ;;         :white
-             ;;         ))))}
-             ;; :vehicle-feel-color? true
-             }
-            :components
-            [[:cart/entity :_
-              {:f (fn []
-                    (lib/->entity :circle
-                                  {:anchor-position [0 0]
-                                   :color defs/white
-                                   :transform
-                                   (lib/->transform
-                                    [0 0]
-                                    5
-                                    5
-                                    1)}))}]
-             ;;
+  (let
+    [ray-source-hunger (atom 0)
+     cart
+       (cart/->cart
+         {:body {:color (:misty-rose defs/color-map)
+                 :scale 0.5
+                 :hidden? false
+                 :on-collide-map
+                   {:count-aggression
+                      (fn [e other s k]
+                        (when (:ray-source? other)
+                          (swap! ray-source-hunger dec))
+                        e)}
+                 ;; :mass 100
+                 ;; :particle? true
+                 ;; :kinetic-energy 0.1
+                 ;; :moment-of-inertia 1000
+                 :stroke-weight 0
+                 ;; :on-update-map
+                 #_{:flash1
+                      (lib/every-n-seconds
+                        (fn [] (lib/normal-distr 5 1))
+                        (fn [e s k]
+                          (activation-flash
+                            e
+                            (:color e)
+                            (defs/color-map
+                              (rand-nth [:cyan :deep-pink]))
+                            (fn [ent]
+                              (assoc ent
+                                :color (:coloor e))))))}
+                 ;; :on-update-map
+                 ;; {:color-aggression
+                 ;;  (fn [e s k]
+                 ;;    (assoc
+                 ;;       (if (< 0.5 @aggression)
+                 ;;         :deep-pink
+                 ;;         :white
+                 ;;         ))))}
+                 ;; :vehicle-feel-color? true
+                }
+          :components
+            [;;
              [:cart/motor :ma
               {:anchor :bottom-right
                :corner-r 5
@@ -776,26 +778,67 @@
                :hidden? true
                :source [:ref :arousal]}]
              ;; ----------------------------
-             [:brain/connection :_
+             [:brain/connection :love-wire1
               {:destination [:ref :ma]
                :f :excite
                :hidden? true
-               :on-update-map
-               {:gain (fn [e s k]
-                        (assoc-in e
-                                  [:transduction-model :gain]
-                                  -10))}
                :source [:ref :sa]}]
-             [:brain/connection :_
+             [:brain/connection :love-wire2
               {:destination [:ref :mb]
                :f :excite
                :hidden? true
-               :on-update-map
-               {:gain (fn [e s k]
-                        (assoc-in e
-                                  [:transduction-model :gain]
-                                  -10))}
-               :source [:ref :sb]}]]})]
+               ;; :on-update-map
+               ;; {:gain (fn [e s k]
+               ;;          (assoc-in e
+               ;;                    [:transduction-model
+               ;;                    :gain]
+               ;;                    -10))}
+               :source [:ref :sb]}]
+             [:cart/entity :nodule
+              {:f
+                 (fn []
+                   (->
+                     (lib/->entity :nodule {:hidden? true})
+                     (lib/live
+                      (lib/every-now-and-then
+                       5
+                       (fn [e s k]
+                         (swap! ray-source-hunger inc)
+                         e)))
+                     (lib/live
+                       (lib/every-now-and-then
+                         5
+                         (fn [e s k]
+                           (let [angry?
+                                   (< 1 @ray-source-hunger)
+                                 ;; (< 0
+                                 ;; (q/random-gaussian))
+                                 loving
+                                   (fn [s wire]
+                                     (assoc-in s
+                                       [:eid->entity
+                                        (:id wire)
+                                        :transduction-model
+                                        :gain]
+                                       (if angry? 10 -10)))]
+                             {:updated-state
+                                (->
+                                  s
+                                  (loving (:love-wire2 e))
+                                  (loving (:love-wire1 e))
+                                  (assoc-in
+                                    [:eid->entity (:body e)
+                                     :color]
+                                    (if angry?
+                                      (:deep-pink
+                                        defs/color-map)
+                                      (:green-yellow
+                                        defs/color-map))))}))))))
+               ;; :love-wires
+               ;; {:1 :love-wire1
+               ;;  :2 :love-wire2}
+               :love-wire1 [:ref :love-wire1]
+               :love-wire2 [:ref :love-wire2]}]]})]
     cart))
 
 (defn ->vehicle-field-1
@@ -818,8 +861,6 @@
     :vacuum-babble-factor (/ 1 20)}))
 
 ;; (filter key (group-by :particle-field-id (lib/entities @lib/the-state)))
-
-
 
 (defn ->vehicle-field
   [entities]
@@ -901,7 +942,7 @@
                                50
                                1)})
 
-(defn confettini [] (lib/->entity :_ (->confettin)))
+(defn confettini [] (lib/->entity :_ (->confettini)))
 
 (defn setup-internal
   [state]
@@ -1476,12 +1517,4 @@
 
 
   (lib/append-ents {} (repeatedly 500 ->confettini))
-  (def entities (repeatedly 1e3 ->confettini))
-
-
-
-
-
-
-
-  )
+  (def entities (repeatedly 1e3 ->confettini)))

@@ -197,7 +197,7 @@
 
 (defmulti build-entity first)
 
-(defmethod build-entity :cart/entity [[_ {:keys [f]}]] (f))
+(defmethod build-entity :cart/entity [[_ {:keys [f] :as opts}]] (merge (f) opts))
 
 (defmethod build-entity :default [[kind opts]] ((builders kind) opts))
 
@@ -208,42 +208,45 @@
 (defn resolve-refs
   [temp-id->ent form]
   (update-vals
-   form
-   (fn [v]
-     (if (ref? v)
-       (or (temp-id->ent (second v))
-           (throw #?(:cljs (throw (js/Error.
-                                   (str
-                                    (second v)
-                                    " is not resolved")))
-                     :clj (Exception.
-                           (str (second v)
-                                " is not resolved")))))
-       v))))
+    form
+    (fn [v]
+      (cond (ref? v)
+              (or (temp-id->ent (second v))
+                  (throw
+                    #?(:cljs (throw
+                               (js/Error.
+                                 (str (second v)
+                                      " is not resolved")))
+                       :clj (Exception.
+                              (str (second v)
+                                   " is not resolved")))))
+            (map? v) (resolve-refs temp-id->ent v)
+            :else v))))
 
 (defn ->cart
   [{:keys [body components]}]
   (let [body (build-entity [:cart/body body])
         {:keys [comps]}
-        (reduce (fn [{:keys [comps temp-id->ent]}
-                     [kind temp-id opts]]
-                  (let [entity (build-entity
-                                [kind
-                                 (resolve-refs
-                                  temp-id->ent
-                                  opts)])]
-                    {:comps (into comps
-                                  (if (map? entity)
-                                    [entity]
-                                    entity))
-                     :temp-id->ent (if (= temp-id :_)
-                                     temp-id->ent
-                                     (assoc temp-id->ent
-                                            temp-id entity))}))
-                {:comps [] :temp-id->ent {}}
-                components)]
+          (reduce (fn [{:keys [comps temp-id->ent]}
+                       [kind temp-id opts]]
+                    (let [entity (build-entity
+                                   [kind
+                                    (resolve-refs
+                                      temp-id->ent
+                                      opts)])]
+                      {:comps (into comps
+                                    (if (map? entity)
+                                      [entity]
+                                      entity))
+                       :temp-id->ent (if (= temp-id :_)
+                                       temp-id->ent
+                                       (assoc temp-id->ent
+                                         temp-id entity))}))
+            {:comps [] :temp-id->ent {}}
+            components)
+        comps (map #(assoc % :body (:id body)) comps)]
     (into [(assoc body
-                  :components (into [] (map :id) comps))]
+             :components (into [] (map :id) comps))]
           comps)))
 
 
