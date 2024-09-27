@@ -59,7 +59,7 @@
                                   ;; (range 880 1024)
                                   ;; (range 8592 8600)
                                   ;; (range 8704 8720)
-                          )))))
+                                  )))))
    :raindrop? true
    ;; (apply str (map char (repeatedly 25 #(+ 40
    ;; (rand-int 260)))))
@@ -191,7 +191,7 @@
   ;; (q/rect 0 0 (q/width) (q/height))
 
   (q/color-mode :rgb)
-  (q/fill 0 0 0 50)
+  (q/fill 0 0 0 10)
   (q/rect 0 0 (* 2 2560) (* 2 1920))
 
   ;; (q/fill 200 255 200)
@@ -318,15 +318,11 @@
     ;; :features [:keep-on-top]
     :middleware [m/fun-mode
                  ;; (fn [opts])
-                 m/navigation-2d
-                ]
+                 m/navigation-2d]
     :navigation-2d {:modifiers {:mouse-dragged #{:shift}
                                 :mouse-wheel #{:shift}}}
     :title "hyper-substrates"
-    :key-released (fn [state event]
-                    (when (and (q/key-pressed?)
-                               (println (q/key-code))))
-                    state)
+    :key-released (fn [state event] state)
     :mouse-pressed (comp #(reset! lib/the-state %)
                          (fn [s e]
                            (if (and (q/key-pressed?)
@@ -402,8 +398,7 @@
                (lib/->transform (lib/rand-on-canvas-gauss 0.2) 20 20 1)
                :intensity 20
                :intensity-factor 1
-               :kinetic-energy 0.5
-
+               :kinetic-energy 1
 
                ;; :mass 1e5
 
@@ -847,7 +842,7 @@
                   (lib/->entity :nodule {:hidden? true})
                   (lib/live
                    (lib/every-now-and-then
-                    5
+                    10
                     (fn [e s k]
                       (swap! ray-source-hunger inc)
                       {:updated-state
@@ -888,9 +883,6 @@
                               defs/color-map)
                              (:green-yellow
                               defs/color-map))))}))))))
-               ;; :love-wires
-               ;; {:1 :love-wire1
-               ;;  :2 :love-wire2}
                :aggression-wire1 [:ref :aggression-wire1]
                :aggression-wire2 [:ref :aggression-wire2]
                :love-wire1 [:ref :love-wire1]
@@ -1418,6 +1410,15 @@
 
 
 (comment
+
+  (lib/state-on-update!
+   (fn [s k]
+     (lib/append-ents
+      s
+      [(elib/digital-raindrop {})])))
+
+
+
   (lib/state-on-update!
    (fn [s k]
      (lib/update-ents
@@ -1436,11 +1437,32 @@
          (lib/kill-some
           0.5))
 
+  (count (filter :raindrop? (lib/entities @lib/the-state)))
+
+  (swap! lib/event-queue (fnil conj [])
+         (fn [s]
+           (lib/live
+            s
+            (lib/every-now-and-then
+             0.1
+             (fn [s k]
+
+               (if (<
+                    (count (filter :raindrop? (lib/entities s)))
+                    100)
+                 (lib/append-ents s
+                                  [(elib/digital-raindrop
+                                    {:speed 2
+                                     :raindrop? true
+                                     ;; :text "####"
+                                     :transform
+                                     (lib/->transform
+                                      [(q/random 0 (q/width)) 0]
+                                      10
+                                      10
+                                      1)})])))))))
 
   (reset! lib/the-state {})
-
-
-
 
   (reset! lib/event-queue [])
   (filter :spawner? (lib/entities @lib/the-state))

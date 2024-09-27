@@ -477,9 +477,65 @@
                              (q/with-translation
                                [x y]
                                (q/with-rotation
-                                 [0
-                                  ;; rotation
-                                 ]
+                                 [rotation]
                                  (q/text (:text e) 0 0)))))}
                    :text "+"}
                   opts)))
+
+(defn in-bounds? [index coll]
+  (and (>= index 0)
+       (< index (count coll))))
+
+(defn text-raindrop
+  [opts]
+  (lib/->entity
+    :text-raindrop
+    (merge
+      {:draw-functions
+         {:f (fn [e]
+               (let [transform (:transform e)
+                     [x y] (:pos transform)
+                     {:keys [width height scale rotation]}
+                       transform
+                     c (if (in-bounds? (:index e) (:text e))
+                         (nth (:text e) (:index e))
+                         (rand-nth ["#" "?" "!" "@"]))]
+                 (println c (:index e))
+                 (q/with-translation
+                   [x (+ y (* (:glyph-size e) (:index e)))]
+                   (q/with-rotation
+                     [rotation]
+                     (q/text (str c) 0 0)))))}
+       :glyph-size 18
+       :text "+"}
+      opts)))
+
+(defn digital-raindrop
+  [opts]
+  (lib/live
+    (text-raindrop
+      (merge
+        {:color (:ice-cyan defs/color-map)
+         :index 0
+         :loop? true
+         :rotation q/PI
+         :text (map char
+                 (repeatedly
+                   (:length opts
+                            (q/floor (/ (q/height) 18)))
+                   #(rand-nth (concat (range 32 128)
+                                      (range 160 383)
+                                      (range 880 1024)
+                                      (range 8592 8600)
+                                      (range 8704 8720)))))
+         :transform
+           (lib/->transform (lib/rand-on-canvas) 10 10 1)}
+        opts))
+    (lib/every-n-seconds (/ 1 (:speed opts))
+                         (fn [e s k]
+                           (if-not (in-bounds? (:index e)
+                                               (:text e))
+                             (if (:loop? e)
+                               (assoc e :index 0)
+                               (assoc e :kill? true))
+                             (update e :index inc))))))

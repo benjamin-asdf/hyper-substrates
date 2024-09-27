@@ -316,15 +316,11 @@
     ;; :features [:keep-on-top]
     :middleware [m/fun-mode
                  ;; (fn [opts])
-                 m/navigation-2d
-                ]
+                 m/navigation-2d]
     :navigation-2d {:modifiers {:mouse-dragged #{:shift}
                                 :mouse-wheel #{:shift}}}
     :title "hyper-substrates"
-    :key-released (fn [state event]
-                    (when (and (q/key-pressed?)
-                               (println (q/key-code))))
-                    state)
+    :key-released (fn [state event] state)
     :mouse-pressed (comp #(reset! lib/the-state %)
                          (fn [s e]
                            (if (and (q/key-pressed?)
