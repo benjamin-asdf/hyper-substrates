@@ -526,8 +526,8 @@
                       :t-min nil
                       :t-max nil
                       :last-relative 0))
-                  (when @audio-hum (audio/stop! @audio-hum))
-                  (reset! audio-hum
+                  #_(when @audio-hum (audio/stop! @audio-hum))
+                  #_(reset! audio-hum
                     (audio/play!
                       {:duration (lib/normal-distr 0.5 0.2)
                        :frequency audio-freq})))))

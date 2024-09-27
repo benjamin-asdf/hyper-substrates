@@ -137,15 +137,18 @@
             [(normal-distr 0 distr)
              (normal-distr 0 distr)]))
 
-(defn every-n-seconds [n f]
+(defn every-n-seconds
+  [n f]
   (let [n (if (number? n) (constantly n) n)
-        till (atom (n))]
+        till (atom 0)]
     (fn [& args]
       (swap! till - *dt*)
-      (when (< @till 0)
-        (reset! till (n))
-        (apply f args)))))
+      (when (< @till 0) (reset! till (n)) (apply f args)))))
 
+(defn every-now-and-then
+  ([mean op] (every-now-and-then mean (q/sqrt mean) op))
+  ([mean stdv op]
+   (every-n-seconds (fn [] (normal-distr mean stdv)) op)))
 
 ;; ----------------------------------------
 
@@ -633,25 +636,22 @@
                   (filter :motor?))
             (:components entity)))
 
+
 (defn update-body
   [entity state]
   (if-not (:body? entity)
     entity
-    (let [effectors (sequence (comp (map (entities-by-id
-                                           state))
-                                    (filter :motor?))
-                              (:components entity))]
+    (let [effectors (motors entity state)]
       (-> entity
           (update :acceleration
                   (fnil + 0)
                   (reduce +
                     (map #(:activation % 0) effectors)))
-          (update :angular-acceleration
-                  (fnil + 0)
-                  (transduce
-                    (map effector->angular-acceleration)
-                    +
-                    effectors))))))
+          (assoc :angular-acceleration
+                   (transduce
+                     (map effector->angular-acceleration)
+                     +
+                     effectors))))))
 
 (defn update-rotation
   [entity]
@@ -780,11 +780,10 @@
   entity
   (if activation
     (let [sign (signum activation)
-          activation (* sign (let [v (abs activation)]
-                               (if (< v 0.2)
-                                 v
-                                 (- v 0.2 )
-                                 )) 0.8)]
+          activation (* sign
+                        (let [v (abs activation)]
+                          (if (< v 0.2) v (- v 0.2)))
+                        0.8)]
       (assoc entity :activation activation))
     entity))
 
