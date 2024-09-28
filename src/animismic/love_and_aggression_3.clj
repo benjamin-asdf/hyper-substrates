@@ -399,16 +399,20 @@
                :intensity 20
                :intensity-factor 1
                :kinetic-energy 1
-
                ;; :mass 1e5
-
                :on-collide-map
                {:burst
                 (lib/cooldown
-                 (fn [] (lib/normal-distr 2 2))
-                 lib/burst)
+                 (fn []
 
-                }
+                   (lib/normal-distr 2 (q/sqrt 2)))
+                 lib/burst)
+                :intensity
+                (fn [e other s k]
+                  #_(audio/play! (audio/->audio {:frequency (+ 150 (* 50 (rand-int 3))) :duration 0.2}))
+                  (-> e
+                      (update :intensity inc)
+                      (update-in [:transform :scale] + 0.1)))}
                :on-double-click-map
                {:orient-towards-me
                 (fn [e s k]
@@ -425,12 +429,36 @@
                :particle? true
                :pos pos
                :scale 0.75
-               :shinyness nil}
-              )]
+               :shinyness nil})]
 
      (->
       e
-      (lib/live (lib/every-now-and-then 1 (fn [e s k] (assoc-in e [:transform :scale] 1))))
+      (lib/live
+       (lib/every-now-and-then
+        10
+        (fn [e s k]
+          (->
+           e
+           (assoc-in [:transform :scale] 1)
+           (assoc-in [:intensity] 20)
+           (assoc-in [:intensity-factor] 1)))))
+
+      (lib/live
+       (lib/every-now-and-then
+        2
+        (fn [e s k]
+          (q/color-mode :rgb)
+          (assoc
+           e
+           :color
+           (q/lerp-color
+            (lib/->hsb (:heliotrope defs/color-map))
+            (lib/->hsb (:white defs/color-map))
+            (doto (q/norm (:intensity e) 20 40) println)
+            )
+           )
+          )))
+
 
       #_(lib/live
          [:rays
@@ -688,11 +716,19 @@
                  {:count-aggression
                   (fn [e other s k]
                     (if
+
                         (:ray-source? other)
                         (do
                           (swap! ray-source-hunger (constantly -6))
+                          (->
+                           e
+                           (assoc-in
+                            [:transform :pos]
+                            (lib/rand-on-canvas))
+                           (lib/orient-towards
+                            (lib/position other)))
 
-                          e
+
                           #_{:updated-state
                              (lib/append-ents
                               s
@@ -709,9 +745,7 @@
                                   20
                                   1)})])
 
-                             }
-
-                          )
+                             })
                         e
 
 
@@ -812,7 +846,6 @@
                :f :excite
                :hidden? true
                :source [:ref :arousal]}]
-
              ;; ----------------------------
              [:brain/connection :love-wire1
               {:destination [:ref :ma]
@@ -845,6 +878,15 @@
                     10
                     (fn [e s k]
                       (swap! ray-source-hunger inc)
+                      ;; (zero? (q/random 0 1))
+                      #_(when
+                          (zero? (fm.rand/flip 0.9))
+                          (audio/play!
+                           (audio/->audio
+                            {:volume 50
+                             :frequency
+                             (+ 440 (* (* -1 @ray-source-hunger) 20))
+                             :duration 0.2})))
                       {:updated-state
                        (lib/append-ents
                         s
