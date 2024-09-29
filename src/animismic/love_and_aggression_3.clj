@@ -693,8 +693,7 @@
                         5
                         (Math/sqrt
                          2)))))])}))])
-      ;; (lib/live [:intensity-osc update-intensity-osc])
-      ))))
+      (lib/live [:intensity-osc update-intensity-osc])))))
 
 (defn add-ray-source
   [state]
@@ -1110,6 +1109,9 @@
   (swap! lib/event-queue (fnil conj [])
          (fn [s]
            (update-in s [:controls :time-speed] (constantly 5))))
+  (swap! lib/event-queue (fnil conj [])
+         (fn [s]
+           (update-in s [:controls :time-speed] (constantly 2))))
   (swap! lib/event-queue (fnil conj [])
          (fn [s]
            (update-in s [:controls :time-speed] (constantly 3))))

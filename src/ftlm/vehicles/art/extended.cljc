@@ -517,8 +517,7 @@
       (merge
         {:color (:ice-cyan defs/color-map)
          :index 0
-         :loop? true
-         :rotation q/PI
+         ;; :loop? true
          :text (map char
                  (repeatedly
                    (:length opts
@@ -528,14 +527,16 @@
                                       (range 880 1024)
                                       (range 8592 8600)
                                       (range 8704 8720)))))
-         :transform
-           (lib/->transform (lib/rand-on-canvas) 10 10 1)}
+         :transform (lib/->transform (lib/rand-on-canvas)
+                                     10 10
+                                     1 q/PI)}
         opts))
-    (lib/every-n-seconds (/ 1 (:speed opts))
-                         (fn [e s k]
-                           (if-not (in-bounds? (:index e)
-                                               (:text e))
-                             (if (:loop? e)
-                               (assoc e :index 0)
-                               (assoc e :kill? true))
-                             (update e :index inc))))))
+    (lib/every-n-seconds
+     (:every-when opts 1)
+     (fn [e s k]
+       (if-not (in-bounds? (:index e)
+                           (:text e))
+         (if (:loop? e)
+           (assoc e :index 0)
+           (assoc e :kill? true))
+         (update e :index inc))))))

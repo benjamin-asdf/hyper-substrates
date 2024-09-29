@@ -49,8 +49,15 @@
     ([kind opts] (merge (->entity kind) opts))
     ([kind] {:id (->eid) :kind kind :spawn-time (q/millis) :entity? true :world :default})))
 
-(defn ->transform [pos width height scale]
-  {:pos pos :width width :height height :scale scale :rotation 0})
+(defn ->transform
+  ([pos width height scale]
+   (->transform pos width height scale 0))
+  ([pos width height scale rotation]
+   {:height height
+    :pos pos
+    :rotation rotation
+    :scale scale
+    :width width}))
 
 (def entities (comp vals :eid->entity))
 (def entities-by-id #(:eid->entity % {}))
@@ -188,19 +195,22 @@
 
 (defn ->hsb-vec
   [color]
-  (cond (and (map? color)
+  (cond (string? color) (-> color
+                            hex-to-rgba
+                            rgba-to-hsla)
+        (and (map? color)
              (every? #(contains? color %) [:h :s :b]))
-          [(:h color) (:s color) (:b color)]
+        [(:h color) (:s color) (:b color)]
         (and (map? color)
              (every? #(contains? color %) [:h :s :v :a]))
-          [(* (/ (:h color) 360) 255)
-           (* 255 (/ (:s color) 100))
-           (* 255 (/ (:v color) 100)) (* 255 (:a color))]
+        [(* (/ (:h color) 360) 255)
+         (* 255 (/ (:s color) 100))
+         (* 255 (/ (:v color) 100)) (* 255 (:a color))]
         (and (map? color)
              (every? #(contains? color %) [:h :s :v]))
-          [(* (/ (:h color) 360) 255)
-           (* 255 (/ (:s color) 100))
-           (* 255 (/ (:v color) 100))]
+        [(* (/ (:h color) 360) 255)
+         (* 255 (/ (:s color) 100))
+         (* 255 (/ (:v color) 100))]
         (sequential? color) color
         (nil? color) [0 0 0 0]
         :else [color]))
