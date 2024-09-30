@@ -256,23 +256,21 @@
          :spacing spacing
          :transform (lib/->transform pos 0 0 1)}))
     (lib/live [:blerp-resonate #'update-blerp])
-    (lib/live
-      [:particle
-       (fn [e s _]
-         (let [;; (update e
-               ;;         :particle-field
-               ;;         p/interaction-update
-               ;;         (field-map s)
-               ;;         (:interactions e))
-               e (update e
-                         :particle-field
-                         p/update-grid-field)
-              ]
-           (assoc e
-             :elements (pyutils/ensure-jvm
-                         (-> e
-                             :particle-field
-                             :activations)))))])))
+    (lib/live [:particle
+               (fn [e s _]
+                 (let [;; (update e
+                       ;;         :particle-field
+                       ;;         p/interaction-update
+                       ;;         (field-map s)
+                       ;;         (:interactions e))
+                       e (update e
+                                 :particle-field
+                                 p/update-grid-field)]
+                   (assoc e
+                     :elements (pyutils/ensure-jvm
+                                 (-> e
+                                     :particle-field
+                                     :activations)))))])))
 
 (defn world-grid
   []
@@ -394,47 +392,81 @@
      [
       ;; (world-grid)
       ;; (glooby-view)
-      (-> (blerp-retina
-           {:color (:green-yellow defs/color-map)
-            :grid-width grid-width
-            :particle-field-opts {:attenuation-factor 0
-                                  :decay-factor 0.01
-                                  :vacuum-babble-factor
-                                  (/ 1 1000)}
-            :particle-id :green-yellow
-            :pos [50 50]
-            :spacing 20})
-          (lib/live [:produced
-                     (fn [e s _]
-                       (update e
-                               :particle-field
-                               p/production
-                               (:particle-field e)
-                               (fn [n] (+ 5 n))))])
-          (lib/live [:destroyed
-                     (fn [e s _]
-                       (update e
-                               :particle-field
-                               p/interact-inhibiting
-                               (:heliotrope (field-map s))
-                               2))]))
+
+
+      #_(->
+         (blerp-retina
+          {:color (:green-yellow defs/color-map)
+           :grid-width grid-width
+           :particle-field-opts
+
+           {:attenuation-factor 0.5
+            :decay-factor 0.1
+            :vacuum-babble-factor
+            (/ 1 1000)}
+
+           :particle-id :green-yellow
+           :pos [50 50]
+           :spacing 20})
+
+         (lib/live [:produced
+                    (fn [e s _]
+                      (update e
+                              :particle-field
+                              p/production
+                              (:particle-field e)
+                              (fn [n] (+ 5 n))))])
+
+         #_(lib/live [:destroyed
+                      (fn [e s _]
+                        (update e
+                                :particle-field
+                                p/interact-inhibiting
+                                (:heliotrope (field-map s))
+                                2))]))
+
+
+
       (->
-       (blerp-retina {:color (:heliotrope defs/color-map)
+       (blerp-retina {:color ;; (:heliotrope defs/color-map)
+                      (:ice-cyan defs/color-map)
                       :grid-width grid-width
                       :particle-field-opts
                       {:attenuation-factor 1.5
-                       :decay-factor 0.1
-                       :vacuum-babble-factor (/ 1 1000)}
+                       :decay-factor 0.05
+                       :vacuum-babble-factor (/ 5 1000)}
+                      :particle-id :ice
+                      :pos [50 50]
+                      :spacing 20})
+
+       #_(lib/live [:produced
+                    (fn [e s _]
+                      (update e
+                              :particle-field
+                              p/production
+                              (:green-yellow (field-map s))
+                              0.2))]))
+
+      (->
+       (blerp-retina {:color
+                      (:heliotrope defs/color-map)
+                      :grid-width grid-width
+                      :particle-field-opts
+                      {:attenuation-factor 0.9
+                       :decay-factor 0.05
+                       :vacuum-babble-factor (/ 5 1000)}
                       :particle-id :heliotrope
                       :pos [50 50]
                       :spacing 20})
-       (lib/live [:produced
-                  (fn [e s _]
-                    (update e
-                            :particle-field
-                            p/production
-                            (:green-yellow (field-map s))
-                            0.2))]))
+
+       #_(lib/live [:produced
+                    (fn [e s _]
+                      (update e
+                              :particle-field
+                              p/production
+                              (:green-yellow (field-map s))
+                              0.2))]))
+
       ;; (blerp-retina {:color (:green-yellow
       ;; defs/color-map)
       ;;                :grid-width grid-width

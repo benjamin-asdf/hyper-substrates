@@ -32,6 +32,14 @@ into the hints of edges, then ebbing and flowing, washed away by some force of n
 Perhaps no more than the ideas of an idea of an object.
 
 
+
+
+
+#+CAPTION: Blerp fields with different parameters. Cyan has higher attenuation, making the elements move. Blerps are inspired by neuronal ensembles.
+https://faster-than-light-memes.xyz/blerps.gif
+
+
+
 - =particle-field= is a directed graph (on a 2d grid).
 - Each node is connected to itself and it's immediate neighbours (local).
 - Time is discrete, at each time step =A= (activation) particles are selected (global inhibition model).
@@ -46,9 +54,14 @@ Perhaps no more than the ideas of an idea of an object.
 - the resonator part is the idea that top-down processes constrain which nodes are especially excitable for the blerp.
   (how to do this is to be figured out).
 
+
+
+
 #+CAPTION: Just some blerps coming from a locally connected graph and some randomness
 https://drive.google.com/file/d/1FzKIxnld6xk2b6WQIYcqZCyWtWSR4ii8/view?usp=sharing
 (does drive link work? Not sure).
+
+
 
 [more soon]
 
@@ -63,7 +76,7 @@ And the neuronal ensembles make sense to me as a mesoscale brain software elemen
 
 
 - emphasis on internally generated dynamics (Buzsáki)
-- weights with log normal distribution (Buzsáki)
+- weights with log normal distribution, this makes 'hubs' / 'backbones' of activity
 
 - classically, the recurrent neuronal nets
   (coming now in deep learning and cognitive modeling again as modern Hopfield nets)
@@ -73,6 +86,14 @@ And the neuronal ensembles make sense to me as a mesoscale brain software elemen
 - There are other topics like spike rates,
   timings ([[https://pubmed.ncbi.nlm.nih.gov/29863378/][The emergence of polychronization and feature binding in a spiking neural network model of the primate ventral visual system]]),
   synchronicity (e.g. Earl Miller) or computation at the dendrites.
+
+- A brain network would have the dynamics to make stable trajectories (sequences) of hubs
+  (ensembles, attractor basins), which are active for roughly 1 second. (Buzsáki /The Brain from Inside Out/).
+
+- Since I want to model neuronal codes with hypervectors, I'm not sure if I need the trajectory dynamics
+
+- Those are for the /neuronal syntax/, which is a rhythm encoding. But we don't need a rhythm encoding, we
+  need only get the essential concepts right.
 
 
 * Substrate-like?
