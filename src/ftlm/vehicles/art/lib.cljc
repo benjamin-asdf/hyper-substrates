@@ -193,6 +193,51 @@
 ;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
+(defn
+  hex-to-rgba
+  [s]
+  (let [m (re-matches
+           #"^#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?$"
+           s)]
+    (if
+        m
+        (mapv
+         #(Integer/parseInt % 16)
+         (subvec m 1))
+        (throw
+         (ex-info
+          (str "Invalid hex color: " s)
+          {})))))
+
+(defn
+  rgba-to-hsla
+  [[r g b a]]
+  (let [r (/ r 255)
+        g (/ g 255)
+        b (/ b 255)
+        a (/ a 255)
+        max (max r g b)
+        min (min r g b)
+        l (/ (+ max min) 2)
+        d (- max min)
+        h (cond
+            (= max min)
+            0
+            (= max r)
+            (mod (/ (- g b) d) 6)
+            (= max g)
+            (/ (- b r) d 2)
+            :else
+            (/ (- r g) d 4))
+        s (if
+              (or (= l 0) (= l 1))
+              0
+              (/ d (- 1 (abs (* 2 l - 1)))))
+        h (* h 60)
+        s (* s 100)
+        l (* l 100)]
+    [h s l a]))
+
 (defn ->hsb-vec
   [color]
   (cond (string? color) (-> color
