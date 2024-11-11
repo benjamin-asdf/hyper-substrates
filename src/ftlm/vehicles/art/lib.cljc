@@ -209,8 +209,6 @@
         b (Integer/parseInt (subs hex 4 6) 16)]
     [r g b]))
 
-
-
 (defn rgb->hsv
   "Convert RGB color to HSV
    Input can be either:
@@ -224,18 +222,18 @@
   (let [normalize-rgb (fn [[r g b]] [(/ r 255.0) (/ g 255.0)
                                      (/ b 255.0)])
         calculate-hue
-          (fn [cmax cmin r' g' b' delta]
-            (cond (zero? delta) 0
-                  (= cmax r')
-                    (mod (* 60 (/ (- g' b') delta)) 360)
-                  (= cmax g') (+ 120
-                                 (* 60 (/ (- b' r') delta)))
-                  (= cmax b') (+ 240
-                                 (* 60 (/ (- r' g') delta)))
-                  :else 0))
+        (fn [cmax cmin r' g' b' delta]
+          (cond (zero? delta) 0
+                (= cmax r')
+                (mod (* 60 (/ (- g' b') delta)) 360)
+                (= cmax g') (+ 120
+                               (* 60 (/ (- b' r') delta)))
+                (= cmax b') (+ 240
+                               (* 60 (/ (- r' g') delta)))
+                :else 0))
         calculate-saturation
-          (fn [cmax delta]
-            (if (zero? cmax) 0 (* 100 (/ delta cmax))))
+        (fn [cmax delta]
+          (if (zero? cmax) 0 (* 100 (/ delta cmax))))
         rgb (if (string? input) (hex->rgb input) input)
         [r' g' b'] (normalize-rgb rgb)
         cmax (max r' g' b')
@@ -268,6 +266,7 @@
         :else [color]))
 
 
+
 (defn ->hsb
   [color]
   (let [ret (->hsb-vec color)]
@@ -275,16 +274,13 @@
 
 (defn shine
   [{:as entity :keys [shine shinyness]}]
-
   (if-not shinyness
     entity
-    (do
-      (q/print-every-n-millisec shinyness)
-      (let [shine (mod (+  (or shine 0) (* *dt* shinyness)) 255)]
-        (-> entity
-            (assoc :shine shine)
-            (update :color
-                    (fn [_c] (q/color shine 255 255))))))))
+    (let [shine (mod (+  (or shine 0) (* *dt* shinyness)) 255)]
+      (-> entity
+          (assoc :shine shine)
+          (update :color
+                  (fn [_c] (q/color shine 255 255)))))))
 
 (defn sine-wave [frequency time-in-millis]
   (* (Math/sin (* 2 Math/PI (/ time-in-millis 1000) frequency))))
@@ -381,7 +377,7 @@
   [{:keys [transform end-pos color] :as e}]
   (let [[x y] (:pos transform)
         {:keys [_scale]} transform]
-    (q/stroke-weight 2)
+    (q/stroke-weight (:stroke-weight e 2))
     (q/with-stroke (->hsb color)
       (q/line [x y] end-pos))))
 
@@ -978,7 +974,7 @@
    {:odor-source? true
     :intensity intensity
     :decay-rate decay-rate
-    :hidden? true?
+    :hidden? true
     :transform (->transform pos 0 0 0)}
    opts))
 
@@ -992,6 +988,7 @@
         (comp
          (filter (comp (:fragrance sensor) :fragrances))
          (map (fn [odor-source]
+                (def odor-source odor-source)
                 (let [distance (distance (position sensor)
                                          (position odor-source))]
                   (/
@@ -999,24 +996,25 @@
                    (* distance distance (:decay-rate odor-source)))))))
         +
         (-> env :odor-sources))]
-      (assoc sensor :activation (min new-activation 14))))
+    (assoc sensor :activation (min new-activation 14))))
+
 
 #_(defmethod update-sensor :temperature
-  [sensor env]
-  (let [new-activation
-        (transduce
-         (comp (filter (comp #{(:hot-or-cold sensor)}
-                             :hot-or-cold))
-               (filter (fn [{:as bubble :keys [d]}]
-                         (point-inside-circle?
-                          (position sensor)
-                          (position bubble)
-                          d)))
-               (map :temp))
-         +
-         (-> env
-             :temperature-bubbles))]
-    (assoc sensor :activation (min new-activation 14))))
+    [sensor env]
+    (let [new-activation
+          (transduce
+           (comp (filter (comp #{(:hot-or-cold sensor)}
+                               :hot-or-cold))
+                 (filter (fn [{:as bubble :keys [d]}]
+                           (point-inside-circle?
+                            (position sensor)
+                            (position bubble)
+                            d)))
+                 (map :temp))
+           +
+           (-> env
+               :temperature-bubbles))]
+      (assoc sensor :activation (min new-activation 14))))
 
 (defmethod update-sensor :temperature [sensor env] sensor)
 
@@ -1091,7 +1089,6 @@
 
 (defn +explosion
   [state e]
-  (def e e)
   (append-ents state
                (->explosion {:color (:color e)
                              :n 20
@@ -1099,36 +1096,35 @@
                              :size 10
                              :spread 10})))
 
-
 (defn ->wobble-anim
   [duration magnitute]
   (let [s (atom {:time-since 0})
         inner
-          (fn [e]
-            (if (= :done @s)
-              e
-              (do
-                (when-not (:initial-scale @s)
-                  (swap! s assoc
-                    :initial-scale
-                    (-> e
-                        :transform
-                        :scale)))
-                (swap! s update :time-since + *dt*)
-                (let [progress (/ (:time-since @s) duration)
-                      initial-scale (:initial-scale @s)]
-                  (if (< 1.0 progress)
-                    (do (reset! s :done)
-                        (assoc-in e
-                          [:transform :scale]
-                          initial-scale))
-                    (assoc-in e
-                      [:transform :scale]
-                      (q/lerp
-                        (:initial-scale @s)
-                        (* (:initial-scale @s) magnitute)
-                        (q/sin (float (* q/PI
-                                         progress))))))))))]
+        (fn [e]
+          (if (= :done @s)
+            e
+            (do
+              (when-not (:initial-scale @s)
+                (swap! s assoc
+                       :initial-scale
+                       (-> e
+                           :transform
+                           :scale)))
+              (swap! s update :time-since + *dt*)
+              (let [progress (/ (:time-since @s) duration)
+                    initial-scale (:initial-scale @s)]
+                (if (< 1.0 progress)
+                  (do (reset! s :done)
+                      (assoc-in e
+                                [:transform :scale]
+                                initial-scale))
+                  (assoc-in e
+                            [:transform :scale]
+                            (q/lerp
+                             (:initial-scale @s)
+                             (* (:initial-scale @s) magnitute)
+                             (q/sin (float (* q/PI
+                                              progress))))))))))]
     (fn ([e _state] (inner e)) ([e _state _k] (inner e)))))
 
 (defn wobble [e duration magnitute]
@@ -1144,42 +1140,43 @@
 
 (defn ->ray-source-1
   [{:as opts :keys [pos intensity scale shinyness]}]
-  (->entity
-    :circle
-    (merge {:collides? true
-            :color {:h 67 :s 7 :v 95}
-            :draggable? true
-            :particle? true
-            :ray-source? true
-            :shinyness
-              (if-not (nil? shinyness) shinyness intensity)
-            :transform (assoc (->transform pos 40 40 1)
-                         :scale (or scale 1))}
-           opts)))
-
+  (->entity :circle
+            (merge {:collides? true
+                    :color {:h 67 :s 7 :v 95}
+                    :draggable? true
+                    :particle? true
+                    :ray-source? true
+                    :shinyness (if-not (false? shinyness)
+                                 shinyness
+                                 intensity)
+                    :transform (assoc
+                                 (->transform pos 40 40 1)
+                                 :scale (or scale 1))}
+                   opts)))
 
 (defn ->ray-source
   [{:as opts :keys [pos intensity scale shinyness]}]
   [(merge (->ray-source-1 opts)
           {:on-collide-map
-           {:burst
-            (cooldown
-             2
-             (fn [e _other state _]
-               {:updated-state
-                (cond-> (+explosion state e)
-                  :wobble (update-in [:eid->entity
-                                      (:id e)]
-                                     wobble
-                                     1
-                                     3)
-                  (-> state
-                      :controls
-                      :ray-sources-die?)
-                  (assoc-in [:eid->entity (:id e)
-                             :lifetime]
-                            0.8))}))}}
+             {:burst
+                (cooldown
+                  2
+                  (fn [e _other state _]
+                    {:updated-state
+                       (cond-> (+explosion state e)
+                         :wobble (update-in [:eid->entity
+                                             (:id e)]
+                                            wobble
+                                            1
+                                            3)
+                         (-> state
+                             :controls
+                             :ray-sources-die?)
+                           (assoc-in [:eid->entity (:id e)
+                                      :lifetime]
+                             0.8))}))}}
           opts)])
+
 
 (defn ->body
   [{:as opts :keys [pos scale rot]}]
@@ -1644,43 +1641,43 @@
 
 (defn mouse-pressed
   [state event]
+  (println "mouse-pressed")
   (if-not (inside-canvas? (q/mouse-x) (q/mouse-y))
     state
     (let [draggable-or-clickable (find-closest-draggable
-                                   state)]
+                                  state)]
       (if draggable-or-clickable
         (let [new-selection {:id (:id
-                                   draggable-or-clickable)
+                                  draggable-or-clickable)
                              :time (q/millis)}
               old-selection (:selection state)
               state (-> state
                         (assoc :pressed true)
                         (assoc-in [:eid->entity
                                    (:id
-                                     draggable-or-clickable)
+                                    draggable-or-clickable)
                                    :dragged?]
                                   (:draggable?
-                                    draggable-or-clickable))
+                                   draggable-or-clickable))
                         (assoc :selection new-selection))
               state ((->call-callbacks :on-click-map)
-                      state
-                      draggable-or-clickable)
+                     state
+                     draggable-or-clickable)
               state (if-not (:draggable?
-                              draggable-or-clickable)
+                             draggable-or-clickable)
                       state
                       ((->call-callbacks :on-drag-start-map)
-                        state
-                        draggable-or-clickable))]
+                       state
+                       draggable-or-clickable))]
+          (println draggable-or-clickable)
           (cond-> state
             (double-clicked? old-selection new-selection)
-              (on-double-click (:id
-                                 draggable-or-clickable))))
+            (on-double-click (:id
+                              draggable-or-clickable))))
         state))))
 
 (defn mouse-released
   [{:as state :keys [selection]} _]
-  (def state state)
-  (def selection selection)
   (if-not selection
     state
     (let [{:as selection :keys [dragged?]}

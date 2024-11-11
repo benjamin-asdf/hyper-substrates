@@ -246,7 +246,7 @@
             components)
         comps (map #(assoc % :body (:id body)) comps)]
     (into [(assoc body
-             :components (into [] (map :id) comps))]
+                  :components (into [] (map :id) comps))]
           comps)))
 
 
