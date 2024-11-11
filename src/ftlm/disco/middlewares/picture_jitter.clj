@@ -1,7 +1,6 @@
 (ns ftlm.disco.middlewares.picture-jitter
   (:require
-   [quil.core :as q :include-macros true]
-   [quil.helpers.calc]))
+   [quil.core :as q :include-macros true]))
 
 (defn default-position
   "Default position configuration: zoom is neutral and central point is
@@ -47,8 +46,7 @@
   [user-update state]
   (let [picture-jitter (:picture-jitter state)]
     (cond-> (user-update state)
-      true
-      ;; (:jitter? picture-jitter)
+      (:jitter? picture-jitter)
       (update :picture-jitter update-jitter-state))))
 
 (defn setup-picture-jitter

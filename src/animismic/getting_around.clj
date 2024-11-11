@@ -664,8 +664,6 @@
   :width nil})
 
 
-
-
 (comment
   (let [ray-source
         (first (filter :ray-source? (lib/entities @lib/the-state)))]

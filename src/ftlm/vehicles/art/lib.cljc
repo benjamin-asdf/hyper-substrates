@@ -193,72 +193,75 @@
 ;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
-(defn
-  hex-to-rgba
-  [s]
-  (let [m (re-matches
-           #"^#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?$"
-           s)]
-    (if
-        m
-        (mapv
-         #(Integer/parseInt % 16)
-         (subvec m 1))
-        (throw
-         (ex-info
-          (str "Invalid hex color: " s)
-          {})))))
+(defn hex-to-rgb
+  "Convert hex color string to RGB values"
+  [hex]
+  (let [hex (if (= \# (first hex))
+              (subs hex 1)
+              hex)
+        r (Integer/parseInt (subs hex 0 2) 16)
+        g (Integer/parseInt (subs hex 2 4) 16)
+        b (Integer/parseInt (subs hex 4 6) 16)]
+    [r g b]))
 
-(defn
-  rgba-to-hsla
-  [[r g b a]]
-  (let [r (/ r 255)
-        g (/ g 255)
-        b (/ b 255)
-        a (/ a 255)
-        max (max r g b)
-        min (min r g b)
-        l (/ (+ max min) 2)
-        d (- max min)
-        h (cond
-            (= max min)
-            0
-            (= max r)
-            (mod (/ (- g b) d) 6)
-            (= max g)
-            (/ (- b r) d 2)
-            :else
-            (/ (- r g) d 4))
-        s (if
-              (or (= l 0) (= l 1))
-              0
-              (/ d (- 1 (abs (* 2 l - 1)))))
-        h (* h 60)
-        s (* s 100)
-        l (* l 100)]
-    [h s l a]))
+
+
+(defn rgb->hsv
+  "Convert RGB color to HSV
+   Input can be either:
+   - RGB vector [r g b] with values 0-255
+   - Hex string \"#RRGGBB\" or \"RRGGBB\"
+   Returns [h s v] where:
+   h = hue (0-360 degrees)
+   s = saturation (0-100 percent)
+   v = value (0-100 percent)"
+  [input]
+  (let [normalize-rgb (fn [[r g b]] [(/ r 255.0) (/ g 255.0)
+                                     (/ b 255.0)])
+        calculate-hue
+          (fn [cmax cmin r' g' b' delta]
+            (cond (zero? delta) 0
+                  (= cmax r')
+                    (mod (* 60 (/ (- g' b') delta)) 360)
+                  (= cmax g') (+ 120
+                                 (* 60 (/ (- b' r') delta)))
+                  (= cmax b') (+ 240
+                                 (* 60 (/ (- r' g') delta)))
+                  :else 0))
+        calculate-saturation
+          (fn [cmax delta]
+            (if (zero? cmax) 0 (* 100 (/ delta cmax))))
+        rgb (if (string? input) (hex->rgb input) input)
+        [r' g' b'] (normalize-rgb rgb)
+        cmax (max r' g' b')
+        cmin (min r' g' b')
+        delta (- cmax cmin)
+        h (calculate-hue cmax cmin r' g' b' delta)
+        s (calculate-saturation cmax delta)
+        v (* 100 cmax)]
+    [h s v]))
 
 (defn ->hsb-vec
   [color]
-  (cond (string? color) (-> color
-                            hex-to-rgba
-                            rgba-to-hsla)
+  (cond (string? color) (let [[h s v] (rgb->hsv color)]
+                          (->hsb-vec {:h h :s s :v v}))
         (and (map? color)
              (every? #(contains? color %) [:h :s :b]))
-        [(:h color) (:s color) (:b color)]
+          [(:h color) (:s color) (:b color)]
         (and (map? color)
              (every? #(contains? color %) [:h :s :v :a]))
-        [(* (/ (:h color) 360) 255)
-         (* 255 (/ (:s color) 100))
-         (* 255 (/ (:v color) 100)) (* 255 (:a color))]
+          [(* (/ (:h color) 360) 255)
+           (* 255 (/ (:s color) 100))
+           (* 255 (/ (:v color) 100)) (* 255 (:a color))]
         (and (map? color)
              (every? #(contains? color %) [:h :s :v]))
-        [(* (/ (:h color) 360) 255)
-         (* 255 (/ (:s color) 100))
-         (* 255 (/ (:v color) 100))]
+          [(* (/ (:h color) 360) 255)
+           (* 255 (/ (:s color) 100))
+           (* 255 (/ (:v color) 100))]
         (sequential? color) color
         (nil? color) [0 0 0 0]
         :else [color]))
+
 
 (defn ->hsb
   [color]
@@ -1156,7 +1159,6 @@
           :transform (assoc (->transform pos 50 80 scale)
                        :rotation rot)}
          opts))
-
 
 ;; or clickable
 (defn find-closest-draggable

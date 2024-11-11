@@ -1,47 +1,49 @@
 (ns animismic.love-and-aggression-3
   (:require
-   [animismic.lib.particles :as p]
-   [fastmath.core :as fm]
-   [clojure.java.io :as io]
-   [clojure.string :as str]
-   [clojure.data.json :as json]
-   [quil.middleware :as m]
-   [ftlm.vehicles.art.lib :refer [*dt*] :as lib]
-   [ftlm.vehicles.art.defs :as defsc]
-   [ftlm.vehicles.art.extended :as elib]
-   [tech.v3.datatype.unary-pred :as unary-pred]
-   [tech.v3.datatype.functional :as f]
-   [tech.v3.datatype :as dtype]
-   [tech.v3.tensor :as dtt]
-   [quil.core :as q]
-   [datascript.core :as d]
+    [animismic.lib.particles :as p]
+    [fastmath.core :as fm]
+    [clojure.java.io :as io]
+    [clojure.string :as str]
+    [clojure.data.json :as json]
+    [quil.middleware :as m]
+    [ftlm.vehicles.art.lib :refer [*dt*] :as lib]
+    [ftlm.vehicles.art.defs :as defsc]
+    [ftlm.vehicles.art.extended :as elib]
+    [tech.v3.datatype.unary-pred :as unary-pred]
+    [tech.v3.datatype.functional :as f]
+    [tech.v3.datatype :as dtype]
+    [tech.v3.tensor :as dtt]
+    [quil.core :as q]
+    [datascript.core :as d]
+    [ftlm.vehicles.art.defs :as defs]
+    [tech.v3.datatype.functional :as f]
+    [tech.v3.datatype :as dtype]
+    [tech.v3.tensor :as dtt]
+    [tech.v3.datatype.bitmap :as bitmap]
+    [fastmath.random :as fm.rand]
+    ;; [bennischwerdtner.hd.binary-sparse-segmented :as
+    ;; hd]
+    [bennischwerdtner.hd.core :as hd]
+    [bennischwerdtner.pyutils :as pyutils]
+    [tech.v3.datatype.unary-pred :as unary-pred]
+    [tech.v3.datatype.argops :as dtype-argops]
+    [bennischwerdtner.sdm.sdm :as sdm]
+    [bennischwerdtner.hd.item-memory :as item-memory]
+    [bennischwerdtner.hd.impl.item-memory-torch :as
+     item-memory-torch]
+    [bennischwerdtner.hd.codebook-item-memory :as codebook]
+    [bennischwerdtner.hd.ui.audio :as audio]
+    [bennischwerdtner.hd.data-next :as hdd]
+    [ftlm.vehicles.art.physics :as phy]
+    [animismic.lib.blerp :as b]
+    [animismic.lib.particles-core :as pe]
+    [ftlm.vehicles.cart :as cart]
+    [animismic.lib.vehicles :as v]
+    [libpython-clj2.require :refer [require-python]]
+    [libpython-clj2.python :refer [py. py..] :as py]
+    [ftlm.disco.middlewares.picture-jitter :as
+     picture-jitter]))
 
-   [ftlm.vehicles.art.defs :as defs]
-   [tech.v3.datatype.functional :as f]
-   [tech.v3.datatype :as dtype]
-   [tech.v3.tensor :as dtt]
-   [tech.v3.datatype.bitmap :as bitmap]
-   [fastmath.random :as fm.rand]
-   ;; [bennischwerdtner.hd.binary-sparse-segmented :as
-   ;; hd]
-   [bennischwerdtner.hd.core :as hd]
-   [bennischwerdtner.pyutils :as pyutils]
-   [tech.v3.datatype.unary-pred :as unary-pred]
-   [tech.v3.datatype.argops :as dtype-argops]
-   [bennischwerdtner.sdm.sdm :as sdm]
-   [bennischwerdtner.hd.item-memory :as item-memory]
-   [bennischwerdtner.hd.impl.item-memory-torch :as
-    item-memory-torch]
-   [bennischwerdtner.hd.codebook-item-memory :as codebook]
-   [bennischwerdtner.hd.ui.audio :as audio]
-   [bennischwerdtner.hd.data-next :as hdd]
-   [ftlm.vehicles.art.physics :as phy]
-   [animismic.lib.blerp :as b]
-   [animismic.lib.particles-core :as pe]
-   [ftlm.vehicles.cart :as cart]
-   [animismic.lib.vehicles :as v]
-   [libpython-clj2.require :refer [require-python]]
-   [libpython-clj2.python :refer [py. py..] :as py]))
 
 (def glyph-size 18)
 (def min-drops 1)
@@ -295,8 +297,6 @@
   (q/color-mode :hsb)
   (q/text-size glyph-size)
   (q/text-font (q/create-font "Fira Code Bold" glyph-size) glyph-size)
-  ;; (q/background (lib/->hsb (-> controls
-  ;;                              :background-color)))
   (let [state {:controls controls :on-update []}
         state (-> state lib/setup-version)]
     (reset! lib/the-state state)))
@@ -318,7 +318,8 @@
     ;; :features [:keep-on-top]
     :middleware [m/fun-mode
                  ;; (fn [opts])
-                 m/navigation-2d]
+                 m/navigation-2d
+                 picture-jitter/picture-jitter]
     :navigation-2d {:modifiers {:mouse-dragged #{:shift}
                                 :mouse-wheel #{:shift}}}
     :title "hyper-substrates"
@@ -454,10 +455,7 @@
            (q/lerp-color
             (lib/->hsb (:heliotrope defs/color-map))
             (lib/->hsb (:white defs/color-map))
-            (doto (q/norm (:intensity e) 20 40) println)
-            )
-           )
-          )))
+            (q/norm (:intensity e) 20 40))))))
 
 
       #_(lib/live
@@ -877,30 +875,31 @@
                     10
                     (fn [e s k]
                       (swap! ray-source-hunger inc)
+                      nil
                       ;; (zero? (q/random 0 1))
                       #_(when
-                          (zero? (fm.rand/flip 0.9))
-                          (audio/play!
-                           (audio/->audio
-                            {:volume 50
-                             :frequency
-                             (+ 440 (* (* -1 @ray-source-hunger) 20))
-                             :duration 0.2})))
-                      {:updated-state
-                       (lib/append-ents
-                        s
-                        [(elib/->text
-                          {:color
-                           (:hit-pink
-                            defs/color-map)
-                           :lifetime 0.2
-                           :transform
-                           (lib/->transform
-                            (lib/position
-                             e)
-                            20
-                            20
-                            1)})])})))
+                            (zero? (fm.rand/flip 0.9))
+                            (audio/play!
+                             (audio/->audio
+                              {:volume 50
+                               :frequency
+                               (+ 440 (* (* -1 @ray-source-hunger) 20))
+                               :duration 0.2})))
+                      #_{:updated-state
+                         (lib/append-ents
+                          s
+                          [(elib/->text
+                            {:color
+                             (:hit-pink
+                              defs/color-map)
+                             :lifetime 0.2
+                             :transform
+                             (lib/->transform
+                              (lib/position
+                               e)
+                              20
+                              20
+                              1)})])})))
                   (lib/live
                    (lib/every-now-and-then
                     5
@@ -1039,8 +1038,6 @@
 
    state
 
-
-
    (assoc
     :db-conn
     (let [schema
@@ -1049,8 +1046,6 @@
             :db/valueType :db.type/ref}}
           conn (d/create-conn schema)]
       conn))
-
-   ;; add-raindrops
 
    #_(lib/append-ents
       (repeatedly

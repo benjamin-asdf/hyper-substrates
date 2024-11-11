@@ -877,17 +877,4 @@
 (comment
   (reset! lib/the-state {})
   (reset! lib/event-queue [])
-  (filter :spawner? (lib/entities @lib/the-state))
-
-
-
-
-
-
-
-
-
-
-
-
-  )
+  (filter :spawner? (lib/entities @lib/the-state)))
