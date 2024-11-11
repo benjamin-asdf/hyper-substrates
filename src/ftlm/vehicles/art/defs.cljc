@@ -24,6 +24,8 @@
    :mint {:h 116 :s 18 :v 100}
    :misty-rose {:h 6 :s 12 :v 100}
    :navajo-white {:h 36 :s 32 :v 100}
+   :navajo-white-tint
+     {:h 35.853658536585364 :s 32.15686274509804 :v 100.0}
    :orange {:h 39 :s 100 :v 100}
    :purple {:h 271 :s 81 :v 100}
    :red {:h 0 :s 255 :v 100}

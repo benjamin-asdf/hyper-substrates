@@ -198,7 +198,7 @@
 ;; in ms
 (defn age [entity] (- (q/millis) (:spawn-time entity)))
 
-(defn hex-to-rgb
+(defn hex->rgb
   "Convert hex color string to RGB values"
   [hex]
   (let [hex (if (= \# (first hex))
@@ -861,14 +861,16 @@
 (def connection->destination (comp :destination :transduction-model))
 
 (defn transduce-signal
-  [destination source {:keys [f gain]}]
+  [destination source {:keys [f gain signal-function]}]
   (let [gain (cond (number? gain) #(* gain %)
                    (fn? gain) gain
                    :else identity)]
     (update destination
             :activation
             (fnil + 0)
-            (gain (f (:activation source 0))))))
+            (if signal-function
+              (signal-function source destination)
+              (gain (f (:activation source 0)))))))
 
 (defn transduce-signals
   [state]
@@ -956,15 +958,15 @@
                       (filter (fn [{:keys [ray-kind]}]
                                 (= ray-kind
                                    (:ray-kind sensor)))
-                              ray-sources)
+                        ray-sources)
                       ray-sources)
         ray-intensity (ray-intensity
-                       (position sensor)
-                       (rotation sensor)
-                       (-> sensor
-                           :anchor
-                           anchor->sensor-direction)
-                       ray-sources)]
+                        (position sensor)
+                        (rotation sensor)
+                        (-> sensor
+                            :anchor
+                            anchor->sensor-direction)
+                        ray-sources)]
     (assoc sensor :activation (min ray-intensity 14))))
 
 (defn ->odor-source
