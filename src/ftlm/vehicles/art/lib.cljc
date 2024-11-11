@@ -35,6 +35,11 @@
 (defn v-sum [v1 v2]
   (mapv + v1 v2))
 
+(defn rand-position-around
+  [pos r]
+  (mapv + pos (map (partial * r) (q/random-2d))))
+
+
 (defn signum [x]
   (cond
     (<= x 0) -1
@@ -830,6 +835,10 @@
 
 (defn update-sensors
   [entity env]
+  ;; (if
+  ;;     (:sensor? entity)
+  ;;     (println entity)
+  ;;     nil)
   (if (:sensor? entity) (update-sensor entity env) entity))
 
 (defn activation-decay
@@ -888,6 +897,8 @@
   (mod (+ (mod angle q/TWO-PI) q/TWO-PI) q/TWO-PI))
 
 (defn orient-towards
+  "Returns an updated entity with the rotation pointing to `target`.
+  `entity`: source entity `target`: position "
   [entity target]
   ;; (def entity entity)
   ;; (def target target)
@@ -920,30 +931,44 @@
   (max 0 (Math/cos (+ (* looking-direction q/TWO-PI) angle))))
 
 (defn ray-intensity
-  [sensor-pos sensor-rotation sensor-looking-direction env]
+  [sensor-pos sensor-rotation sensor-looking-direction
+   ray-sources]
   (transduce
    (map (fn [light]
-          (let [distance (distance sensor-pos (position light))
-                angle-to-source (angle-between (position light) sensor-pos)
-                relative-angle (- sensor-rotation angle-to-source)
+          (let [distance (distance sensor-pos
+                                   (position light))
+                angle-to-source (angle-between (position
+                                                light)
+                                               sensor-pos)
+                relative-angle (- sensor-rotation
+                                  angle-to-source)
                 angle (- relative-angle q/PI)
                 raw-intensity (/ (:intensity light)
-                                 (/ (* distance distance) 5000))
-                adjustment (calculate-adjustment angle
-                                                 sensor-looking-direction)]
+                                 (/ (* distance distance)
+                                    5000))
+                adjustment (calculate-adjustment
+                            angle
+                            sensor-looking-direction)]
             (* raw-intensity adjustment))))
    +
-   (:ray-sources env)))
+   ray-sources))
 
 (defmethod update-sensor :rays
   [sensor env]
-  (let [ray-intensity (ray-intensity
+  (let [ray-sources (:ray-sources env)
+        ray-sources (if (:ray-kind sensor)
+                      (filter (fn [{:keys [ray-kind]}]
+                                (= ray-kind
+                                   (:ray-kind sensor)))
+                              ray-sources)
+                      ray-sources)
+        ray-intensity (ray-intensity
                        (position sensor)
                        (rotation sensor)
                        (-> sensor
                            :anchor
                            anchor->sensor-direction)
-                       env)]
+                       ray-sources)]
     (assoc sensor :activation (min ray-intensity 14))))
 
 (defn ->odor-source
@@ -1044,7 +1069,6 @@
                                           (:id se))
                                (append-ents [se]))}))))))
 
-
 (defn ->explosion
   [{:keys [n size pos color spread]}]
   (into
@@ -1118,36 +1142,43 @@
    (-> (+explosion state e)
        (update-in [:eid->entity (:id e)] wobble 1 3))})
 
+(defn ->ray-source-1
+  [{:as opts :keys [pos intensity scale shinyness]}]
+  (->entity
+    :circle
+    (merge {:collides? true
+            :color {:h 67 :s 7 :v 95}
+            :draggable? true
+            :particle? true
+            :ray-source? true
+            :shinyness
+              (if-not (nil? shinyness) shinyness intensity)
+            :transform (assoc (->transform pos 40 40 1)
+                         :scale (or scale 1))}
+           opts)))
+
+
 (defn ->ray-source
   [{:as opts :keys [pos intensity scale shinyness]}]
-  [(merge (->entity :circle)
-          {:collides? true
-           :color {:h 67 :s 7 :v 95}
-           :draggable? true
-           :on-collide-map
-             {:burst
-                (cooldown
-                  2
-                  (fn [e _other state _]
-                    {:updated-state
-                       (cond-> (+explosion state e)
-                         :wobble (update-in [:eid->entity
-                                             (:id e)]
-                                            wobble
-                                            1
-                                            3)
-                         (-> state
-                             :controls
-                             :ray-sources-die?)
-                           (assoc-in [:eid->entity (:id e)
-                                      :lifetime]
-                             0.8))}))}
-           :particle? true
-           :ray-source? true
-           :shinyness
-             (if-not (nil? shinyness) shinyness intensity)
-           :transform (assoc (->transform pos 40 40 1)
-                        :scale (or scale 1))}
+  [(merge (->ray-source-1 opts)
+          {:on-collide-map
+           {:burst
+            (cooldown
+             2
+             (fn [e _other state _]
+               {:updated-state
+                (cond-> (+explosion state e)
+                  :wobble (update-in [:eid->entity
+                                      (:id e)]
+                                     wobble
+                                     1
+                                     3)
+                  (-> state
+                      :controls
+                      :ray-sources-die?)
+                  (assoc-in [:eid->entity (:id e)
+                             :lifetime]
+                            0.8))}))}}
           opts)])
 
 (defn ->body
@@ -1157,7 +1188,7 @@
           ;; 'physical'
           :collides? true
           :transform (assoc (->transform pos 50 80 scale)
-                       :rotation rot)}
+                            :rotation rot)}
          opts))
 
 ;; or clickable
@@ -1460,7 +1491,7 @@
     {:odor-sources (filter :odor-source? ents)
      :ray-sources (filter :ray-source? ents)
      :temperature-bubbles (filter :temperature-bubble?
-                            ents)}))
+                                  ents)}))
 
 (defn ->sub-circle
   [angle radius opts]
@@ -1766,7 +1797,7 @@
 
 (defmulti setup-version (comp keyword :v :controls))
 
-(defn from-left [amount]
+(defn from-right [amount]
   (- (q/width) amount))
 
 (defn from-bottom [amount]
