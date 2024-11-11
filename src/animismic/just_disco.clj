@@ -243,8 +243,8 @@
   (q/frame-rate 60)
   (q/rect-mode :center)
   (q/color-mode :hsb)
-  (q/text-size glyph-size)
-  (q/text-font (q/create-font "Fira Code Bold" glyph-size) glyph-size)
+
+
   ;; (q/background (lib/->hsb (-> controls
   ;;                              :background-color)))
   (let [state {:controls controls :on-update []}

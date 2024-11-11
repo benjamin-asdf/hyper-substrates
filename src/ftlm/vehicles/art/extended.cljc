@@ -468,7 +468,6 @@
                 (merge
                   {:draw-functions
                      {:f (fn [e]
-                           (def e e)
                            (let [transform (:transform e)
                                  [x y] (:pos transform)
                                  {:keys [width height scale
@@ -502,7 +501,6 @@
                      c (if (in-bounds? (:index e) (:text e))
                          (nth (:text e) (:index e))
                          (rand-nth ["#" "?" "!" "@"]))]
-                 (println c (:index e))
                  (q/with-translation
                    [x (+ y (* (:glyph-size e) (:index e)))]
                    (q/with-rotation
