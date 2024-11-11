@@ -898,8 +898,6 @@
   "Returns an updated entity with the rotation pointing to `target`.
   `entity`: source entity `target`: position "
   [entity target]
-  ;; (def entity entity)
-  ;; (def target target)
   (let [desired-angle (angle-between (position entity) target)]
     (assoc-in entity [:transform :rotation] desired-angle)))
 
@@ -1091,12 +1089,15 @@
 
 (defn +explosion
   [state e]
-  (append-ents state
-               (->explosion {:color (:color e)
-                             :n 20
-                             :pos (position e)
-                             :size 10
-                             :spread 10})))
+  (append-ents
+   state
+   (->explosion
+    {:color (:color e)
+     :n 20
+     :pos (position e)
+     :size (* 15 (-> e :transform :scale))
+     :spread 10})))
+
 
 (defn ->wobble-anim
   [duration magnitute]

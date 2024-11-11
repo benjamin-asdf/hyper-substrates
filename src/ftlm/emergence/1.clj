@@ -46,7 +46,13 @@
 
 (def glyph-size 18)
 
-
+(defn vehicle-death
+  [s e]
+  (let [new-e (-> e
+                  (assoc :lifetime 0.2)
+                  (lib/live (lib/->grow 0.1)))]
+    (-> (lib/+explosion s e)
+        (assoc-in [:eid->entity (:id e)] new-e))))
 
 (defn draw-state
   [state]
@@ -197,7 +203,8 @@
                                   (+ x (* lib/*dt* speed)))]
                 wave-value)))]
     (assoc e
-           :intensity (+ 5 (* 5 (:intensity-factor e))))))
+           :intensity (+ 15 (* 10 (:intensity-factor e))))))
+
 
 (defn ->ray-source
   ([] (->ray-source (lib/rand-on-canvas-gauss 0.2)))
@@ -228,175 +235,190 @@
            :ray-kind :yellow-heart
            :scale 1})]
      (->
-       e
-       #_(lib/live
-           [:rays
-            (lib/every-n-seconds
-              1.5
-              (fn [e s _]
-                {:updated-state
-                   (let [bodies (into []
-                                      (filter :body?
-                                        (lib/entities s)))
-                         a (first (shuffle bodies))
-                         b e]
-                     (when (and a b)
-                       (->
-                         s
-                         (lib/append-ents
-                           [(merge
-                              (lib/->connection-bezier-line
-                                a
-                                b)
-                              {:lifetime (lib/normal-distr
-                                           2
-                                           1)})]))))}))])
-       #_(lib/live [:colors
-                    (lib/every-n-seconds
-                      0.5
-                      (fn [e s k]
-                        (assoc e
-                          :color (defs/color-map
-                                   (rand-nth
-                                     [:green-yellow
-                                      :heliotrope])))))])
-       #_(lib/live [:kinetic
-                    (lib/every-n-seconds
-                      5
-                      (fn [e s k]
-                        (assoc e
-                          :kinetic-energy
-                            (lib/normal-distr 5 2))))])
-       (lib/live
-         [:circular-shine-radio
+      e
+      #_(lib/live
+         [:rays
           (lib/every-n-seconds
-            (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
-            (fn [ray s k]
-              {:updated-state
-                 (lib/append-ents
+           1.5
+           (fn [e s _]
+             {:updated-state
+              (let [bodies (into []
+                                 (filter :body?
+                                         (lib/entities s)))
+                    a (first (shuffle bodies))
+                    b e]
+                (when (and a b)
+                  (->
                    s
-                   [(let [e (lib/->circular-shine-1 ray)]
-                      (->
-                        e
-                        (assoc :color (lib/with-alpha
-                                        (:yellow
-                                          defs/color-map)
-                                        0))
-                        (assoc :stroke-weight 3)
-                        (assoc :stroke (:color ray))
-                        (assoc :on-update
-                                 [(lib/->grow
-                                    (* 2
-                                       (+ 1
-                                          (:intensity-factor
-                                            ray
-                                            0))))])
-                        (assoc :lifetime (lib/normal-distr
-                                           3
-                                           (Math/sqrt
-                                             3)))))])}))])
-       #_(lib/live
-           [:circular-shine-field
-            (lib/every-n-seconds
-              (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
-              (fn [ray s k]
-                {:updated-state
                    (lib/append-ents
-                     s
-                     [(let [e (lib/->circular-shine-1 ray)]
-                        (-> e
-                            (assoc :color
-                                     ((rand-nth
-                                        [:black :hit-pink
-                                         :cyan :heliotrope])
-                                       defs/color-map))
-                            ;; (assoc :stroke-weight
-                            ;; 3)
-                            ;; (assoc :stroke (:color
-                            ;; ray))
-                            (assoc
-                              :on-update
-                                [(lib/->grow
-                                   (* 2
-                                      (+ 1
-                                         (:intensity-factor
-                                           ray
-                                           0))))])
-                            (assoc :lifetime
-                                     (lib/normal-distr
-                                       10
-                                       (Math/sqrt
-                                         5)))))])}))])
-       (lib/live [:intensity-osc update-intensity-osc])))))
+                    [(merge
+                      (lib/->connection-bezier-line
+                       a
+                       b)
+                      {:lifetime (lib/normal-distr
+                                  2
+                                  1)})]))))}))])
+      #_(lib/live [:colors
+                   (lib/every-n-seconds
+                    0.5
+                    (fn [e s k]
+                      (assoc e
+                             :color (defs/color-map
+                                      (rand-nth
+                                       [:green-yellow
+                                        :heliotrope])))))])
+      #_(lib/live [:kinetic
+                   (lib/every-n-seconds
+                    5
+                    (fn [e s k]
+                      (assoc e
+                             :kinetic-energy
+                             (lib/normal-distr 5 2))))])
+      (lib/live
+       [:circular-shine-radio
+        (lib/every-n-seconds
+         (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
+         (fn [ray s k]
+           {:updated-state
+            (lib/append-ents
+             s
+             [(let [e (lib/->circular-shine-1 ray)]
+                (->
+                 e
+                 (assoc :color (lib/with-alpha
+                                 (:yellow
+                                  defs/color-map)
+                                 0))
+                 (assoc :stroke-weight 3)
+                 (assoc :stroke (:color ray))
+                 (assoc :on-update
+                        [(lib/->grow
+                          (* 2
+                             (+ 1
+                                (:intensity-factor
+                                 ray
+                                 0))))])
+                 (assoc :lifetime (lib/normal-distr
+                                   3
+                                   (Math/sqrt
+                                    3)))))])}))])
+      #_(lib/live
+         [:circular-shine-field
+          (lib/every-n-seconds
+           (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
+           (fn [ray s k]
+             {:updated-state
+              (lib/append-ents
+               s
+               [(let [e (lib/->circular-shine-1 ray)]
+                  (-> e
+                      (assoc :color
+                             ((rand-nth
+                               [:black :hit-pink
+                                :cyan :heliotrope])
+                              defs/color-map))
+                      ;; (assoc :stroke-weight
+                      ;; 3)
+                      ;; (assoc :stroke (:color
+                      ;; ray))
+                      (assoc
+                       :on-update
+                       [(lib/->grow
+                         (* 2
+                            (+ 1
+                               (:intensity-factor
+                                ray
+                                0))))])
+                      (assoc :lifetime
+                             (lib/normal-distr
+                              10
+                              (Math/sqrt
+                               5)))))])}))])
+      (lib/live [:intensity-osc update-intensity-osc])))))
 
 (defn food-particle
   []
-  (lib/->entity
-    :circle
-    {;; :hidden? true
-     ;; :color defs/white
-     :hidden? true
-     :collides? true
-     :draggable? true
-     :kinetic-energy 0.5
-     :particle? true
-     :transform (lib/->transform
-                  (lib/rand-position-around
-                    (let [dist 150]
-                      (rand-nth
-                        [[dist dist]
-                         [(lib/from-right dist)
-                          (lib/from-bottom dist)]
-                         [dist (lib/from-bottom dist)]
-                         [(lib/from-right dist) dist]]))
-                    80)
-                  80
-                  80
-                  1)
-     :on-collide-map
-       {:eaten
-          (fn [e other state k]
-            (if (:lifetime e)
-              e
-              (if-not (:ant-data other)
+  (let [poison? false
+        ;; (zero? (fm.rand/flip 0.95))
+        ]
+    (lib/->entity
+      :circle
+      {
+       :hidden? true
+       :collides? true
+       :draggable? true
+       :kinetic-energy 0.5
+       :particle? true
+       :poison? (zero? (fm.rand/flip 0.5))
+       :transform (lib/->transform
+                    (lib/rand-position-around
+                      (let [dist 150]
+                        (rand-nth
+                          [[dist dist]
+                           [(lib/from-right dist)
+                            (lib/from-bottom dist)]
+                           [dist (lib/from-bottom dist)]
+                           [(lib/from-right dist) dist]]))
+                      80)
+                    80
+                    80
+                    1)
+       :on-collide-map
+         {:eaten
+            (fn [e other state k]
+              (if (:lifetime e)
                 e
-                (-> e
-                    (assoc :acceleration 300)
-                    (assoc :kinetic-energy 0.2)
-                    ;; (assoc :particle? false)
-                    (lib/orient-towards (lib/position
-                                          other))
-                    (assoc-in
-                      [:on-update-map :grow]
-                      (lib/every-now-and-then
-                        0.5
-                        (fn [e s k]
-                          (update-in
-                            e
-                            [:transform :scale]
-                            *
-                            (+ 1
-                               (* 0.002
-                                  (q/random-gaussian)))))))
-                    (assoc :lifetime 5)))))}
-     :components [(lib/->ray-source-1
-                    {:anchor :middle-middle
-                     :clickable? false
-                     :color (:mint defs/color-map)
-                     :draggable? false
-                     :food? true
-                     :intensity 1
-                     :ray-kind :green-food
-                     :shinyness false
-                     :transform
-                       (lib/->transform [0 0] 15 15 1)})
-                  (lib/->odor-source {:anchor :middle-middle
-                                      :decay-rate 2
-                                      :fragrances #{:food}
-                                      :intensity 40})]}))
-
-
-
+                (if-not (:ant-data other)
+                  e
+                  (let
+                    [new-e
+                       (->
+                         e
+                         (assoc :acceleration 300)
+                         (assoc :kinetic-energy 0.2)
+                         ;; (assoc :particle? false)
+                         (lib/orient-towards (lib/position
+                                               other))
+                         (assoc-in
+                           [:on-update-map :grow]
+                           (lib/every-now-and-then
+                             0.5
+                             (fn [e s k]
+                               (update-in
+                                 e
+                                 [:transform :scale]
+                                 *
+                                 (+
+                                   1
+                                   (*
+                                     0.002
+                                     (q/random-gaussian)))))))
+                         (assoc :lifetime 2))]
+                    {:updated-state
+                       (cond->
+                           state
+                           poison?
+                           (vehicle-death other)
+                           :always
+                           (assoc-in [:eid->entity (:id e)]
+                                     new-e))}))))}
+       :components
+         [(lib/->ray-source-1
+            {:anchor :middle-middle
+             :clickable? false
+             :color ((if poison? :fruit-salad :mint)
+                      defs/color-map)
+             :draggable? false
+             :food? true
+             :intensity 1
+             :ray-kind :green-food
+             :shinyness false
+             :transform (lib/->transform [0 0] 15 15 1)})
+          (lib/->odor-source
+           {:anchor :middle-middle
+            :decay-rate 2
+            :fragrances #{:food}
+            :intensity 40})]})))
 
 ;; (defn overlay-text
 ;;   []
@@ -452,45 +474,45 @@
   []
   [(lib/->entity :overlay-rect
                  {:draw-functions
-                    {:f (fn [e]
-                          (q/push-style)
-                          (q/rect-mode :corner)
-                          (q/fill (lib/with-alpha
-                                    (lib/->hsb defs/black)
-                                    0.8))
-                          (q/rect (lib/from-right 220)
-                                  (+ (/ (q/height) 2) 250)
-                                  200
-                                  200)
-                          (q/pop-style))}})
+                  {:f (fn [e]
+                        (q/push-style)
+                        (q/rect-mode :corner)
+                        (q/fill (lib/with-alpha
+                                  (lib/->hsb defs/black)
+                                  0.8))
+                        (q/rect (lib/from-right 260)
+                                (+ (/ (q/height) 2) 250)
+                                300
+                                150)
+                        (q/pop-style))}})
    (-> (elib/->text {:color defs/white
                      :text ""
-                     :transform (lib/->transform
-                                  [(lib/from-right 200)
-                                   (+ (/ (q/height) 2) 285)]
-                                  50
-                                  50
-                                  1)})
+                     :transform
+                     (lib/->transform
+                      [(lib/from-right 250)
+                       (+ (/ (q/height) 2) 250)]
+                      50
+                      50
+                      1)})
        (lib/live
-         [:update-text
-          (fn [e s k]
-            (-> e
-                (assoc
-                 :text
-                 (apply str
-                        (interpose "\n"
-                                   (map prn-str
-                                        (reverse (sort-by
-                                                  val
-                                                  (frequencies
-                                                   (map :kind
-                                                        (keep
-                                                         :ant-data
-                                                         (lib/entities
-                                                          s))))))))))))]))])
-
-
-
+        [:update-text
+         (fn [e s k]
+           (let [ants-info (reverse (sort-by
+                                     val
+                                     (frequencies
+                                      (map :kind
+                                           (keep
+                                            :ant-data
+                                            (lib/entities
+                                             s))))))]
+             (-> e
+                 (assoc
+                  :text
+                  (with-out-str
+                    (clojure.pprint/print-table
+                     (for [[k v] ants-info]
+                       {:name k
+                        :freq v})))))))]))])
 
 (defn add-food-particle
   [state]
@@ -502,30 +524,30 @@
 
 (def ant-types
   {:caretaker {:color (:navajo-white defs/color-map)
-               :exploration-drive 1
+               :exploration-drive 0.2
                :explore-around-yellow-heart 0
                :hunger-for-green-food 0
                :kind :caretaker
                :love-for-yellow-heart 10}
    :gatherer {:color "#adff2f"
-              :exploration-drive 3
+              :exploration-drive 1
               :explore-around-yellow-heart 0
               :hunger-for-green-food 6
               :kind :gatherer
-              :love-for-yellow-heart 2}
+              :love-for-yellow-heart 1}
    :soldier {:color (:red defs/color-map)
              :exploration-drive 2
              :explore-around-yellow-heart 2
              :hunger-for-green-food 2
              :kind :soldier
              :love-for-yellow-heart 1}
-   :worker {:color "#00bfff"
-            :exploration-drive 1
-            :explore-around-yellow-heart 10
-            :hunger-for-green-food 0
-            :kind :worker
-            :love-for-yellow-heart 0}})
-
+   :worker
+   {:color "#00bfff"
+    :exploration-drive 1
+    :explore-around-yellow-heart 4
+    :hunger-for-green-food 0
+    :kind :worker
+    :love-for-yellow-heart 1}})
 
 
 ;;
@@ -605,33 +627,50 @@
 
 (defn hunger-for-green-food
   [intensity]
-  [[:cart/sensor :green-food-ray-sensor-left
+  [
+
+   ;; [:cart/sensor :green-food-sensor-left
+   ;;  {:anchor :top-left
+   ;;   :modality :rays
+   ;;   :ray-kind :green-food}]
+   ;; [:cart/sensor :green-food-sensor-right
+   ;;  {:anchor :top-right
+   ;;   :modality :rays
+   ;;   :ray-kind :green-food}]
+
+
+   [:cart/sensor :green-food-sensor-left
     {:anchor :top-left
-     :modality :rays
-     :ray-kind :green-food}]
-   [:cart/sensor :green-food-ray-sensor-right
+     :modality :smell
+     :fragrance :food}]
+   [:cart/sensor :green-food-sensor-right
     {:anchor :top-right
-     :modality :rays
-     :ray-kind :green-food}]
+     :modality :smell
+     :fragrance :food
+     }]
+
    ;; --------------------------------
    [:brain/connection :green-food-connection-a
     {:destination [:ref :motor-bottom-left]
      :f (lib/->weighted -1)
      :hidden? true
-     :on-update-map {:gain (fn [e s k]
-                             (assoc-in e
-                                       [:transduction-model :gain]
-                                       (* 0.5 (intensity))))}
-     :source [:ref :green-food-ray-sensor-left]}]
+     :on-update-map
+     {:gain (fn [e s k]
+              (assoc-in e
+                        [:transduction-model :gain]
+                        (* 0.3 (intensity))))}
+     :source [:ref :green-food-sensor-left]}]
    [:brain/connection :green-food-connection-b
     {:destination [:ref :motor-bottom-right]
      :f (lib/->weighted -1)
      :hidden? true
-     :on-update-map {:gain (fn [e s k]
-                             (assoc-in e
-                                       [:transduction-model :gain]
-                                       (* 0.5 (intensity))))}
-     :source [:ref :green-food-ray-sensor-right]}]])
+     :on-update-map
+     {:gain
+      (fn [e s k]
+        (assoc-in e
+                  [:transduction-model :gain]
+                  (* 0.3 (intensity))))}
+     :source [:ref :green-food-sensor-right]}]])
 
 
 (defn exploration-wires
@@ -683,7 +722,7 @@
                      (*
                       ;; (if @seeking? 0.2
                       ;; 0.1)
-                      0.3
+                      0.2
                       (intensity))))]}]
      ;; ------------------------------------
      [:cart/sensor :yellow-ray-sensor-left
@@ -736,17 +775,19 @@
        :on-update-map {:gain (fn [e s k]
                                (assoc-in e
                                          [:transduction-model :gain]
-                                         (* 0.8 (intensity))))}
+                                         (* 0.3 (intensity))
+                                         ))}
        :source [:ref :yellow-ray-sensor-right]}]
      [:brain/connection :yellow-connection-b
       {:destination [:ref :motor-bottom-left]
        :f (lib/->weighted -1)
        :hidden? true
        :on-update-map
-       {:gain (fn [e s k]
-                (assoc-in e
-                          [:transduction-model :gain]
-                          (* 0.8 (intensity))))}
+       {:gain
+        (fn [e s k]
+          (assoc-in e
+                    [:transduction-model :gain]
+                    (* 0.3 (intensity))))}
        :source [:ref :yellow-ray-sensor-left]}]]))
 
 (defn explore-around-yellow-heart
@@ -832,172 +873,255 @@
         (cart/->cart
           {:body
              (merge
-              {:ant-data ant-data
-               :collides? true
-               :on-collide-map
-               {:keep-track-of-who-i-meet
-                (lib/cooldown
-                 2
-                 (fn [e other state k]
-                   (if-not
-                       (or (:ant-data other)
-                           (= (:last-guy-that-i-meet
-                               e)
-                              (:id other)))
-                       e
-                       (do
-                         #_(when (< (q/random 1) 0.05)
-                             (future
-                               (audio/play!
-                                (audio/->audio
-                                 {:duration 0.2
-                                  :frequency
-                                  (rand-nth
-                                   [600])}))))
-                         {:updated-state
-                          (->
-                           state
-                           (update-in
-                            [:eid->entity (:id e)
-                             :smell-history]
-                            (fnil
-                             (fn [hist]
-                               (let
-                                   [hist
-                                    (conj
-                                     hist
-                                     (->
-                                      other
-                                      :ant-data
-                                      :kind))]
-                                   (vec (take-last
-                                         10
-                                         hist))))
-                             []))
-                           (lib/append-ents
-                            [(let
-                                 [sin
-                                  (elib/sine-wave-machine
-                                   100
-                                   (lib/normal-distr
-                                    500
-                                    100))]
-                                 (->
-                                  (assoc
-                                   (lib/->connection-line
-                                    e
-                                    other)
-                                   :stroke-weight
-                                   10 :z-index
-                                   -5 :lifetime
-                                   1
-                                   ;; (-
-                                   ;;  2
-                                   ;;  (*
-                                   ;;   0.01
-                                   ;;   (+
-                                   ;;    (:velocity
-                                   ;;    e 1)
-                                   ;;    (:velocity
-                                   ;;    other
-                                   ;;    1))))
-                                   )
-                                  (assoc-in
-                                   [:on-late-update-map
-                                    :flash]
-                                   (let
-                                       [base-color
-                                        (:color
-                                         e)]
-                                       (fn [e s k]
-                                         (assoc e
-                                                :color
-                                                (lib/with-alpha
-                                                  base-color
-                                                  (sin))))))))]))}
-                         ;; (-> e
-                         ;;     (assoc
-                         ;;     :last-guy-that-i-meet
-                         ;;     (:id other))
-                         ;;     ;;
-                         ;;     (activation-flash
-                         ;;     ;;  (:color e)
-                         ;;     ;;  defs/white
-                         ;;     ;;  (fn [ek]
-                         ;;     ;;    (assoc ek
-                         ;;     :color (:color
-                         ;;     e))))
-                         ;;     )
-                         ))))}
-               :on-double-click-map
-               {:die (fn [e s k]
-                       (let [new-e (-> e
-                                       (assoc :lifetime
-                                              0.4)
-                                       (lib/live
-                                        (lib/->grow
-                                         0.2)))]
-                         {:updated-state
-                          (-> (lib/+explosion s e)
-                              (assoc-in [:eid->entity
-                                         (:id e)]
-                                        new-e))}))}
-               :on-update-map
-               {:decides-to-flip
-                (lib/every-now-and-then
-                 0.2
-                 (fn [e s k]
-                   (if-not (<= 10
-                               (count
-                                (:smell-history
-                                 e)))
-                     e
-                     (let
-                         [target-ant-type
-                          (key
-                           (first
-                            (sort-by
-                             val
-                             (merge
-                              (update-vals
-                               ant-types
-                               (constantly 0))
-                              (frequencies
-                               (:smell-history
-                                e))))))]
-                         (if (= target-ant-type
-                                (-> e
-                                    :ant-data
-                                    :kind))
+               {:ant-data ant-data
+                :collides? true
+                :on-collide-map
+                  {:keep-track-of-who-i-meet
+                     (lib/cooldown
+                       2
+                       (fn [e other state k]
+                         (if-not (or
+                                   (:ant-data other)
+                                   (= (:last-guy-that-i-meet
+                                        e)
+                                      (:id other)))
                            e
                            (do
-                             (reset! internal-state
-                                     (target-ant-type
-                                      ant-types))
-                             (->
-                              e
-                              (assoc
-                               :color
-                               (:color
-                                (target-ant-type
-                                 ant-types)))
-                              (assoc :smell-history
-                                     [])
-                              (assoc
-                               :ant-data
-                               (target-ant-type
-                                ant-types))
-                              (assoc
-                               :angular-velocity
-                               (rand-nth
-                                [-3 2 2
-                                 3])))))))))}
-               :scale 0.4
-               :stroke-weight 0
-               :vehicle-feel-color? true
-               }
-              (select-keys ant-data [:color])
-              body-opts)
+                             #_(when (< (q/random 1) 0.05)
+                                 (future
+                                   (audio/play!
+                                     (audio/->audio
+                                       {:duration 0.2
+                                        :frequency
+                                          (rand-nth
+                                            [600])}))))
+                             {:updated-state
+                                (->
+                                  state
+                                  (update-in
+                                    [:eid->entity (:id e)
+                                     :smell-history]
+                                    (fnil
+                                      (fn [hist]
+                                        (let
+                                          [hist
+                                             (conj
+                                               hist
+                                               (-> other
+                                                   :ant-data
+                                                   :kind))]
+                                          (vec (take-last
+                                                 10
+                                                 hist))))
+                                      []))
+                                  (lib/append-ents
+                                    [(let
+                                       [sin
+                                          (elib/sine-wave-machine
+                                            100
+                                            (lib/normal-distr
+                                              500
+                                              100))]
+                                       (->
+                                         (assoc
+                                           (lib/->connection-line
+                                             e
+                                             other)
+                                             :stroke-weight
+                                           10 :z-index
+                                           -5 :lifetime
+                                           1
+                                           ;; (-
+                                           ;;  2
+                                           ;;  (*
+                                           ;;   0.01
+                                           ;;   (+
+                                           ;;    (:velocity
+                                           ;;    e 1)
+                                           ;;    (:velocity
+                                           ;;    other
+                                           ;;    1))))
+                                         )
+                                         (assoc-in
+                                           [:on-late-update-map
+                                            :flash]
+                                           (let [base-color
+                                                   (:color
+                                                     e)]
+                                             (fn [e s k]
+                                               (assoc e
+                                                 :color
+                                                   (lib/with-alpha
+                                                     base-color
+                                                     (sin))))))))]))}
+                             ;; (-> e
+                             ;;     (assoc
+                             ;;     :last-guy-that-i-meet
+                             ;;     (:id other))
+                             ;;     ;;
+                             ;;     (activation-flash
+                             ;;     ;;  (:color e)
+                             ;;     ;;  defs/white
+                             ;;     ;;  (fn [ek]
+                             ;;     ;;    (assoc ek
+                             ;;     :color (:color
+                             ;;     e))))
+                             ;;     )
+                           ))))}
+                :on-double-click-map
+                  {:die (fn [e s k]
+                          {:updated-state
+                             (vehicle-death s e)})}
+                :on-update-map
+                  {:decides-to-flip
+                     (lib/every-now-and-then
+                       5
+                       (fn [e s k]
+                         (if-not (<= 10
+                                     (count (:smell-history
+                                              e)))
+                           e
+                           (let [target-ant-type
+                                   (key
+                                     (first
+                                       (sort-by
+                                         val
+                                         (merge
+                                           (update-vals
+                                             ant-types
+                                             (constantly 0))
+                                           (frequencies
+                                             (:smell-history
+                                               e))))))]
+                             (if (= target-ant-type
+                                    (-> e
+                                        :ant-data
+                                        :kind))
+                               e
+                               (do
+                                 (reset! internal-state
+                                   (target-ant-type
+                                     ant-types))
+                                 (let
+                                   [new-e
+                                      (->
+                                        e
+                                        (assoc
+                                          :color
+                                            (:color
+                                              (target-ant-type
+                                                ant-types)))
+                                        (assoc
+                                          :smell-history [])
+                                        (assoc
+                                          :ant-data
+                                            (target-ant-type
+                                              ant-types))
+                                        (assoc
+                                          :angular-velocity
+                                            (rand-nth
+                                              [-2 1 0 1 2])))]
+                                   {:updated-state
+                                    (let
+                                        [clockwise?
+                                         (zero?
+                                          (fm.rand/flip
+                                           0.5))]
+                                        (->
+                                         s
+                                         (assoc-in
+                                          [:eid->entity
+                                           (:id e)]
+                                          new-e)
+                                         (lib/append-ents
+                                          (mapcat identity
+                                                  (for
+                                                      [p (repeatedly
+                                                          5
+                                                          (fn []
+                                                            (let
+                                                                [pos
+                                                                 (mapv
+                                                                  +
+                                                                  (lib/position
+                                                                   e)
+                                                                  (mapv
+                                                                   #(*
+                                                                     50
+                                                                     %)
+                                                                   (q/random-2d)))
+                                                                 rotation
+                                                                 ((if
+                                                                      clockwise?
+                                                                      +
+                                                                      -)
+                                                                  (lib/angle-between
+                                                                   (lib/position
+                                                                    e)
+                                                                   pos)
+                                                                  q/HALF-PI)]
+                                                                (lib/->entity
+                                                                 :circle
+                                                                 {:color
+                                                                  defs/white
+                                                                  :lifetime
+                                                                  0.8
+                                                                  :acceleration
+                                                                  1000
+                                                                  ;; :angular-velocity
+                                                                  ;; 20
+                                                                  :transform
+                                                                  (lib/->transform
+                                                                   pos
+                                                                   10
+                                                                   10
+                                                                   1 rotation)}))))]
+                                                      [p
+                                                       (assoc
+                                                        (lib/->connection-line
+                                                         p
+                                                         e)
+                                                        :z-index
+                                                        -5
+                                                        :stroke-weight
+                                                        (abs
+                                                         (lib/normal-distr
+                                                          10
+                                                          5
+                                                          ))
+                                                        )
+
+                                                       (lib/->entity
+                                                        :circle
+                                                        {:color
+                                                         (lib/with-alpha
+                                                           (lib/->hsb defs/white) 0)
+                                                         :stroke-weight 3
+                                                         :stroke defs/white
+                                                         :transform
+                                                         (let
+                                                             [size (abs (lib/normal-distr 5 5))]
+                                                             (lib/->transform
+                                                              (lib/position e)
+                                                              size size
+                                                              1
+                                                              ))
+                                                         :lifetime 0.8
+                                                         :on-update-map
+                                                         {:grow
+                                                          (fn [e s k]
+                                                            (update-in
+                                                             e
+                                                             [:transform :scale]
+                                                             +
+                                                             (lib/normal-distr
+                                                              1
+                                                              1)))}})])))))})))))))}
+                :scale 0.4
+                :stroke-weight 0
+                :vehicle-feel-color? true}
+               (select-keys ant-data [:color])
+               body-opts)
            :components
              (concat
                [[:cart/motor :motor-bottom-right
@@ -1138,7 +1262,7 @@
                      @internal-state)))
                (exploration-wires (fn []
                                     (:exploration-drive
-                                      @internal-state))))})]
+                                     @internal-state))))})]
      cart)))
 
 (defn ->vehicle-field-1
@@ -1248,7 +1372,7 @@
            (defs/color-map :navajo-white-tint)
            :intensity 30
            :intensity-factor 1
-           :kinetic-energy 0.1
+           :kinetic-energy 1
            :no-stroke? true
            :on-collide-map {:burst (lib/cooldown 5 lib/burst)}
            :particle? true
@@ -1258,7 +1382,7 @@
            :ray-kind :yellow-heart})]
      (->
       e
-      (lib/live
+      #_(lib/live
        [:spawns
         (lib/every-now-and-then
          5
@@ -1267,8 +1391,7 @@
             (lib/append-ents
              s
              (vehicle-1
-              {:pos (lib/position e)}))}))]
-       )
+              {:pos (lib/position e)}))}))])
       (lib/live
        [:circular-shine-field
         (lib/every-n-seconds
@@ -1297,39 +1420,44 @@
                   (lib/normal-distr 2 1))))])}))])
       (lib/live [:intensity-osc update-intensity-osc])))))
 
+
+(defn mantis []
+  vehicle-1
+  )
+
 (defn setup-internal
   [state]
   (-> state
       (lib/append-ents [(->yellow-heart)])
       (lib/live [:spawn-food
                  (lib/every-now-and-then
-                   0.2
-                   (fn [s _] (add-food-particle s)))])
+                  0.2
+                  (fn [s _] (add-food-particle s)))])
       (assoc-in
-        [:on-update-map :update-colors]
-        (lib/every-n-seconds
-          (let [last-temp (atom 0)]
-            (fn [] (lib/normal-distr 0.1 0.1)))
-          (let [black? (atom false)]
-            (fn [s _]
-              (let [color (defs/color-map
-                            (if @black?
-                              :black
-                              (rand-nth [:hit-pink
-                                         :heliotrope
-                                         :green-yellow
-                                         :white :cyan])))
-                    _ (swap! black? not)]
-                (lib/update-ents
-                  s
-                  (fn [ent]
-                    (if-not (:update-colors1? ent)
-                      ent
-                      (if (not @black?)
-                        (assoc ent
-                          :color (defs/color-map :cyan))
-                        (assoc ent
-                          :color defs/black))))))))))))
+       [:on-update-map :update-colors]
+       (lib/every-n-seconds
+        (let [last-temp (atom 0)]
+          (fn [] (lib/normal-distr 0.1 0.1)))
+        (let [black? (atom false)]
+          (fn [s _]
+            (let [color (defs/color-map
+                          (if @black?
+                            :black
+                            (rand-nth [:hit-pink
+                                       :heliotrope
+                                       :green-yellow
+                                       :white :cyan])))
+                  _ (swap! black? not)]
+              (lib/update-ents
+               s
+               (fn [ent]
+                 (if-not (:update-colors1? ent)
+                   ent
+                   (if (not @black?)
+                     (assoc ent
+                            :color (defs/color-map :cyan))
+                     (assoc ent
+                            :color defs/black))))))))))))
 
 (defmethod lib/setup-version :vehicle-1
   [state]
@@ -1387,8 +1515,8 @@
   (let [entities
         (mapcat
          identity
-         ;; (repeatedly 36 vehicle-1)
-         (repeatedly 24 vehicle-1)
+         (repeatedly 36 vehicle-1)
+         ;; (repeatedly 24 vehicle-1)
          )]
     (-> state
         (lib/append-ents entities)
@@ -1545,9 +1673,6 @@
   :caretaker
 
   ([:caretaker 0] [:soldier 1] [:gatherer 4] [:worker 5])
-
-
-
 
 
 
