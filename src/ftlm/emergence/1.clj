@@ -44,8 +44,6 @@
    [ftlm.disco.middlewares.picture-jitter :as
     picture-jitter]))
 
-
-
 (def ant-types
   {:caretaker {:audio-freq 250
                :color (:navajo-white defs/color-map)
@@ -74,8 +72,7 @@
             :explore-around-yellow-heart 4
             :hunger-for-green-food 0
             :kind :worker
-            :love-for-yellow-heart 1}})
-
+            :love-for-yellow-heart 0}})
 
 (defn the-sound-of-birth
   []
@@ -193,9 +190,8 @@
    ;; hard coding my monitor, else it was going to
    ;; another monitor
    ;; [2560 1920]
-   [1800 1200]
-
-   ;; [1200 900]
+   ;; [1800 1200]
+   [1200 900]
    ;; [500 500]
    :setup (partial setup controls)
    :update #'update-state
@@ -1072,192 +1068,210 @@
                           {:updated-state
                              (vehicle-death s e)})}
                 :on-update-map
-                  {:decides-to-flip
-                     (lib/every-n-seconds
-                      2
-                      (fn [e s k]
-                        ;; ant-flip
-                        (if-not
-                            (<= 5 (count (:smell-history e)))
-                            e
-                            (let [target-ant-type
-                                  (key
-                                   (first
-                                    (shuffle
-                                     (first
-                                      (partition-by
-                                       val
-                                       (sort-by
-                                        val
-                                        (merge
-                                         (update-vals
-                                          ant-types
-                                          (constantly 0))
-                                         (frequencies
-                                          (:smell-history
-                                           e)))))))))
+                  {
+                   ;; :workers-flip
+                   ;; (lib/every-now-and-then
+                   ;;  5
+                   ;;  (fn [e s k]
+                   ;;    (when
+                   ;;        (= :worker (:kind (:ant-data e)))
+                   ;;      (let [new-love (rand-nth [0 10])]
+                   ;;        (swap! internal-state assoc :love-for-yellow-heart new-love)
+                   ;;        (assoc
+                   ;;         e
+                   ;;         :color
+                   ;;         ({0 (defs/color-map :worker-blue)
+                   ;;           10 (defs/color-map :black)}
+                   ;;          new-love))))))
 
-                                  ]
-                              (if (= target-ant-type
-                                     (-> e
-                                         :ant-data
-                                         :kind))
-                                e
-                                (do
-                                  (reset! internal-state
-                                          (target-ant-type
-                                           ant-types))
-                                  (let
-                                      [new-e
-                                       (->
-                                        e
-                                        (assoc
-                                         :color
-                                         (:color
-                                          (target-ant-type
-                                           ant-types)))
-                                        (assoc
-                                         :smell-history [])
-                                        (assoc
-                                         :ant-data
-                                         (target-ant-type
-                                          ant-types))
-                                        (assoc
-                                         :angular-velocity
-                                         (rand-nth
-                                          [-2 1 0 1
-                                           2])))]
-                                      {:updated-state
-                                       (let
-                                           [clockwise?
-                                            (zero?
-                                             (fm.rand/flip
-                                              0.5))]
-                                           (future
-                                             (audio/play!
-                                              (audio/->audio
-                                               {:duration 0.2
-                                                :frequency
-                                                (:audio-freq
-                                                 (target-ant-type
-                                                  ant-types))})))
-                                           (->
-                                            s
-                                            (assoc-in
-                                             [:eid->entity
-                                              (:id e)]
-                                             new-e)
-                                            (lib/append-ents
-                                             (mapcat identity
-                                                     (for
-                                                         [p (repeatedly
-                                                             5
-                                                             (fn []
-                                                               (let
-                                                                   [pos
-                                                                    (mapv
-                                                                     +
-                                                                     (lib/position
-                                                                      e)
-                                                                     (mapv
-                                                                      #(*
-                                                                        50
-                                                                        %)
-                                                                      (q/random-2d)))
-                                                                    rotation
-                                                                    ((if
-                                                                         clockwise?
-                                                                         +
-                                                                         -)
-                                                                     (lib/angle-between
-                                                                      (lib/position
-                                                                       e)
-                                                                      pos)
-                                                                     q/HALF-PI)]
-                                                                   (lib/->entity
-                                                                    :circle
-                                                                    {:color
-                                                                     (lib/with-alpha
-                                                                       (lib/->hsb-vec
-                                                                        defs/white)
-                                                                       (abs
-                                                                        (lib/normal-distr
-                                                                         0.5
-                                                                         1)))
-                                                                     :lifetime
-                                                                     0.8
-                                                                     :acceleration
-                                                                     1000
-                                                                     ;; :angular-velocity
-                                                                     ;; 20
-                                                                     :transform
-                                                                     (lib/->transform
-                                                                      pos
-                                                                      10
-                                                                      10
-                                                                      1 rotation)}))))]
-                                                         [p
-                                                          (assoc
-                                                           (lib/->connection-line
-                                                            p
-                                                            e)
-                                                           :z-index
-                                                           -5
-                                                           :stroke-weight
-                                                           (abs
-                                                            (lib/normal-distr
-                                                             3
-                                                             1)))
-                                                          (lib/->entity
-                                                           :circle
-                                                           {:color
-                                                            (lib/with-alpha
-                                                              (lib/->hsb
-                                                               defs/white)
-                                                              0)
-                                                            :lifetime
-                                                            0.8
-                                                            :on-update-map
-                                                            {:grow
-                                                             (fn
-                                                               [e
-                                                                s
-                                                                k]
-                                                               (update-in
-                                                                e
-                                                                [:transform
-                                                                 :scale]
-                                                                +
-                                                                (lib/normal-distr
-                                                                 1
-                                                                 1)))}
-                                                            :stroke
-                                                            (lib/with-alpha
-                                                              (lib/->hsb-vec
-                                                               defs/white)
-                                                              (abs
-                                                               (lib/normal-distr
-                                                                0
-                                                                0.2)))
-                                                            :stroke-weight
+
+
+                   :decides-to-flip
+                   (lib/every-now-and-then
+                    10
+                    (fn [e s k]
+                      ;; ant-flip
+                      (if-not
+                          (<= 5 (count (:smell-history e)))
+                          e
+                          (let [target-ant-type
+                                (key
+                                 (first
+                                  (shuffle
+                                   (first
+                                    (partition-by
+                                     val
+                                     (sort-by
+                                      val
+                                      (merge
+                                       (update-vals
+                                        ant-types
+                                        (constantly 0))
+                                       (frequencies
+                                        (:smell-history
+                                         e)))))))))
+
+                                ]
+                            (if (= target-ant-type
+                                   (-> e
+                                       :ant-data
+                                       :kind))
+                              e
+                              (do
+                                (reset! internal-state
+                                        (target-ant-type
+                                         ant-types))
+                                (let
+                                    [new-e
+                                     (->
+                                      e
+                                      (assoc
+                                       :color
+                                       (:color
+                                        (target-ant-type
+                                         ant-types)))
+                                      (assoc
+                                       :smell-history [])
+                                      (assoc
+                                       :ant-data
+                                       (target-ant-type
+                                        ant-types))
+                                      (assoc
+                                       :angular-velocity
+                                       (rand-nth
+                                        [-2 1 0 1
+                                         2])))]
+                                    {:updated-state
+                                     (let
+                                         [clockwise?
+                                          (zero?
+                                           (fm.rand/flip
+                                            0.5))]
+                                         (future
+                                           (audio/play!
+                                            (audio/->audio
+                                             {:duration 0.2
+                                              :frequency
+                                              (:audio-freq
+                                               (target-ant-type
+                                                ant-types))})))
+                                         (->
+                                          s
+                                          (assoc-in
+                                           [:eid->entity
+                                            (:id e)]
+                                           new-e)
+                                          (lib/append-ents
+                                           (mapcat identity
+                                                   (for
+                                                       [p (repeatedly
+                                                           5
+                                                           (fn []
+                                                             (let
+                                                                 [pos
+                                                                  (mapv
+                                                                   +
+                                                                   (lib/position
+                                                                    e)
+                                                                   (mapv
+                                                                    #(*
+                                                                      50
+                                                                      %)
+                                                                    (q/random-2d)))
+                                                                  rotation
+                                                                  ((if
+                                                                       clockwise?
+                                                                       +
+                                                                       -)
+                                                                   (lib/angle-between
+                                                                    (lib/position
+                                                                     e)
+                                                                    pos)
+                                                                   q/HALF-PI)]
+                                                                 (lib/->entity
+                                                                  :circle
+                                                                  {:color
+                                                                   (lib/with-alpha
+                                                                     (lib/->hsb-vec
+                                                                      defs/white)
+                                                                     (abs
+                                                                      (lib/normal-distr
+                                                                       0.5
+                                                                       1)))
+                                                                   :lifetime
+                                                                   0.8
+                                                                   :acceleration
+                                                                   1000
+                                                                   ;; :angular-velocity
+                                                                   ;; 20
+                                                                   :transform
+                                                                   (lib/->transform
+                                                                    pos
+                                                                    10
+                                                                    10
+                                                                    1 rotation)}))))]
+                                                       [p
+                                                        (assoc
+                                                         (lib/->connection-line
+                                                          p
+                                                          e)
+                                                         :z-index
+                                                         -5
+                                                         :stroke-weight
+                                                         (abs
+                                                          (lib/normal-distr
+                                                           3
+                                                           1)))
+                                                        (lib/->entity
+                                                         :circle
+                                                         {:color
+                                                          (lib/with-alpha
+                                                            (lib/->hsb
+                                                             defs/white)
+                                                            0)
+                                                          :lifetime
+                                                          0.8
+                                                          :on-update-map
+                                                          {:grow
+                                                           (fn
+                                                             [e
+                                                              s
+                                                              k]
+                                                             (update-in
+                                                              e
+                                                              [:transform
+                                                               :scale]
+                                                              +
+                                                              (lib/normal-distr
+                                                               1
+                                                               1)))}
+                                                          :stroke
+                                                          (lib/with-alpha
+                                                            (lib/->hsb-vec
+                                                             defs/white)
                                                             (abs
                                                              (lib/normal-distr
-                                                              20
-                                                              10))
-                                                            :transform
-                                                            (let
-                                                                [size
-                                                                 (abs
-                                                                  (lib/normal-distr
-                                                                   5
-                                                                   5))]
-                                                                (lib/->transform
-                                                                 (lib/position
-                                                                  e)
-                                                                 size
-                                                                 size
-                                                                 1))})])))))})))))))}
-                :scale 0.2
+                                                              0
+                                                              0.2)))
+                                                          :stroke-weight
+                                                          (abs
+                                                           (lib/normal-distr
+                                                            20
+                                                            10))
+                                                          :transform
+                                                          (let
+                                                              [size
+                                                               (abs
+                                                                (lib/normal-distr
+                                                                 5
+                                                                 5))]
+                                                              (lib/->transform
+                                                               (lib/position
+                                                                e)
+                                                               size
+                                                               size
+                                                               1))})])))))})))))))}
+                :scale 0.4
                 :stroke-weight 0
                 :vehicle-feel-color? true}
                (select-keys ant-data [:color])
@@ -1402,8 +1416,9 @@
                      @internal-state)))
                (exploration-wires (fn []
                                     (:exploration-drive
-                                      @internal-state))))})]
+                                     @internal-state))))})]
      cart)))
+
 
 (defn ->vehicle-field-1
   [grid-width]
@@ -1503,13 +1518,27 @@
   (-> state
       (lib/append-ents [(->vehicle-field entities)])))
 
+
+
+
 (defn ->yellow-heart
   ([] (->yellow-heart (lib/rand-on-canvas-gauss 0.2)))
   ([pos]
-   (let [[e]
+   (let [spawn-one
+         (fn [e s _]
+           (do
+             (future (audio/play! (the-sound-of-birth)))
+             {:updated-state
+              (lib/append-ents
+               s
+               (vehicle-1
+                {:pos (lib/position e)}))}))
+         [e]
          (lib/->ray-source
           {:color
            (defs/color-map :navajo-white-tint)
+           :on-double-click-map
+           {:spawn-one spawn-one}
            :intensity 30
            :intensity-factor 1
            :kinetic-energy 1
@@ -1524,17 +1553,7 @@
       e
       (lib/live
        [:spawns
-        (lib/every-now-and-then
-         20
-         (fn [e s k]
-           (do
-             (future (audio/play! (the-sound-of-birth)))
-             {:updated-state
-              (lib/append-ents
-               s
-               (vehicle-1
-                {:pos (lib/position e)}))})
-           ))])
+        (lib/every-now-and-then 60 spawn-one)])
       (lib/live
        [:circular-shine-field
         (lib/every-n-seconds
@@ -1659,8 +1678,8 @@
          ;; (repeatedly 50 vehicle-1)
          ;; (repeatedly 12 vehicle-1)
 
-         ;; (repeatedly 24 vehicle-1)
-         (repeatedly 50 vehicle-1)
+         (repeatedly 24 vehicle-1)
+         ;; (repeatedly 50 vehicle-1)
 
          )]
     (-> state

@@ -33,7 +33,8 @@
    :very-blue {:h 210 :s 255 :v 100}
    :white [0 0 255]
    :woodsmoke {:h 240 :s 26 :v 9}
-   :yellow {:h 60 :s 100 :v 100}})
+   :yellow {:h 60 :s 100 :v 100}
+   :worker-blue {:h 195.05882352941177 :s 100.0 :v 100.0}})
 
 (def quite-green {:h 135 :s 100 :v 100})
 (def olive-lime-green {:h 72 :s 100 :v 100})
