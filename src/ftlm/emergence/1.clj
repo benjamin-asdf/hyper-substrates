@@ -180,7 +180,6 @@
         state (-> state lib/setup-version)]
     (reset! lib/the-state state)))
 
-
 (defn sketch
   [{:as controls
     :keys [width height]
@@ -248,7 +247,6 @@
                 wave-value)))]
     (assoc e
            :intensity (+ 15 (* 10 (:intensity-factor e))))))
-
 
 (defn ->ray-source
   ([] (->ray-source (lib/rand-on-canvas-gauss 0.2)))
@@ -631,11 +629,6 @@
   [state]
   (lib/append-ents state [(food-particle)]))
 
-(defn add-ray-source
-  [state]
-  (lib/append-ents state [(->ray-source)]))
-
-
 
 
 ;;
@@ -715,9 +708,7 @@
 
 (defn hunger-for-green-food
   [intensity]
-  [
-
-   ;; [:cart/sensor :green-food-sensor-left
+  [;; [:cart/sensor :green-food-sensor-left
    ;;  {:anchor :top-left
    ;;   :modality :rays
    ;;   :ray-kind :green-food}]
@@ -725,39 +716,28 @@
    ;;  {:anchor :top-right
    ;;   :modality :rays
    ;;   :ray-kind :green-food}]
-
-
    [:cart/sensor :green-food-sensor-left
-    {:anchor :top-left
-     :modality :smell
-     :fragrance :food}]
+    {:anchor :top-left :fragrance :food :modality :smell}]
    [:cart/sensor :green-food-sensor-right
-    {:anchor :top-right
-     :modality :smell
-     :fragrance :food
-     }]
-
+    {:anchor :top-right :fragrance :food :modality :smell}]
    ;; --------------------------------
    [:brain/connection :green-food-connection-a
     {:destination [:ref :motor-bottom-left]
      :f (lib/->weighted -1)
      :hidden? true
-     :on-update-map
-     {:gain (fn [e s k]
-              (assoc-in e
-                        [:transduction-model :gain]
-                        (* 0.3 (intensity))))}
+     :on-update-map {:gain (fn [e s k]
+                             (assoc-in e
+                               [:transduction-model :gain]
+                               (* 0.3 (intensity))))}
      :source [:ref :green-food-sensor-left]}]
    [:brain/connection :green-food-connection-b
     {:destination [:ref :motor-bottom-right]
      :f (lib/->weighted -1)
      :hidden? true
-     :on-update-map
-     {:gain
-      (fn [e s k]
-        (assoc-in e
-                  [:transduction-model :gain]
-                  (* 0.3 (intensity))))}
+     :on-update-map {:gain (fn [e s k]
+                             (assoc-in e
+                               [:transduction-model :gain]
+                               (* 0.3 (intensity))))}
      :source [:ref :green-food-sensor-right]}]])
 
 
@@ -1620,25 +1600,6 @@
 (defmethod lib/setup-version :vehicle-1
   [state]
   (setup-internal state))
-
-(comment
-  (swap! lib/event-queue (fnil conj []) add-ray-source)
-  (swap! lib/event-queue (fnil conj []) setup-internal)
-  (swap! lib/event-queue (fnil conj [])
-         (fn [s]
-           (update-in s [:controls :time-speed] (fnil * 1) 1.1)))
-  (swap! lib/event-queue (fnil conj [])
-         (fn [s]
-           (update-in s [:controls :time-speed] (fnil * 1) 0.9)))
-  (swap! lib/event-queue (fnil conj [])
-         (fn [s]
-           (update-in s [:controls :time-speed] (fnil * 1) 1.1)))
-  (swap! lib/event-queue (fnil conj [])
-         (fn [s]
-           (update-in s [:controls :time-speed] (constantly 3))))
-  (swap! lib/event-queue (fnil conj []) (kill-some 1))
-  (swap! lib/event-queue (fnil conj []) (kill-some 0.2)))
-
 
 (defonce vehicle-feel (atom (hd/seed)))
 
