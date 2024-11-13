@@ -45,14 +45,14 @@
     picture-jitter]))
 
 (def ant-types
-  {:caretaker {:audio-freq 250
+  {:caretaker {:audio-freq 300
                :color (:navajo-white defs/color-map)
                :exploration-drive 0.2
                :explore-around-yellow-heart 0
                :hunger-for-green-food 0
                :kind :caretaker
                :love-for-yellow-heart 10}
-   :gatherer {:audio-freq 300
+   :gatherer {:audio-freq 350
               :color "#adff2f"
               :exploration-drive 3
               :explore-around-yellow-heart 0
