@@ -312,16 +312,12 @@
   :v :berp-retina-2})
 
 (comment
-
-
   (f/mean
    (pyutils/ensure-jvm (->> @lib/the-state
                             (lib/entities)
                             (keep :particle-field)
                             (keep :weights)
                             first)))
-
-
 
   (do
     (reset! lib/the-state nil)

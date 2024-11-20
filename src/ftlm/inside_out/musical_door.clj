@@ -269,3 +269,17 @@
          :time-speed 3
          :v :musical-door-1
          :width 800})
+
+
+
+
+;; ------------------------------------
+;; inside out:
+;;
+;; - door
+;; - memory orbs
+;; - control panel
+;; - imagination booths
+;; - the self model
+;; - emotions as tiny control circuits (Jaak Panksepp)
+;;

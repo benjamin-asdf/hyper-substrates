@@ -13,13 +13,19 @@
   [user-draw state]
   (q/push-matrix)
   (let [picture-jitter (:picture-jitter state)
-        zoom (:zoom picture-jitter)
-        pos (:position picture-jitter)]
+        zoom 1
+        ;; (:zoom picture-jitter 1)
+        pos (:position picture-jitter)
+        rotation (:rotation picture-jitter 0)]
     (q/scale zoom)
-    (q/with-translation
-      [(- (/ (q/width) 2 zoom) (first pos))
-       (- (/ (q/height) 2 zoom) (second pos))]
-      (user-draw state)))
+    (q/with-rotation
+      ;; (rand-nth [q/TWO-PI q/HALF-PI (* -1
+      ;; q/HALF-PI)])
+      [rotation]
+      (q/with-translation
+        [(- (/ (q/width) 2 zoom) (first pos))
+         (- (/ (q/height) 2 zoom) (second pos))]
+        (user-draw state))))
   (q/pop-matrix))
 
 (defn add-vec
@@ -40,7 +46,12 @@
         v (mult-vec v [intensity intensity])]
     (-> jitter
         (update :position add-vec v)
-        (update :zoom + (* zoom-intensity (q/random -0.1 0.1))))))
+        (update :rotation
+                (comp #(mod % q/TWO-PI) (fnil + 0))
+                (* 0.1 q/PI))
+        (update :zoom
+                +
+                (* zoom-intensity (q/random -0.1 0.1))))))
 
 (defn update-state
   [user-update state]

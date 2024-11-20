@@ -164,26 +164,27 @@
 
 ;; ----------------------------------------
 
-(defonce timers (atom {}))
-
 (defn set-timer
-  [seconds]
-  (let [seconds (cond (number? seconds) seconds
-                      :else (seconds))
-        id (random-uuid)]
-    (swap! timers assoc id seconds)
-    id))
+  ([])
+  ([seconds]
+   (let [seconds (cond (number? seconds) seconds
+                       :else (seconds))
+         id (random-uuid)]
+     (swap! (q/state-atom) assoc-in [:timers id] seconds)
+     id)))
 
 (defn update-timers
-  [dt]
-  (swap! timers (fn [v]
-                  (into {}
-                        (comp
-                          (map (fn [[k v]] [k (- v dt)]))
-                          (filter (fn [[_ v]] (pos? v))))
-                        v))))
+  [state]
+  (update state
+          :timers
+          (fn [v]
+            (into {}
+                  (comp (map (fn [[k v]] [k (- v *dt*)]))
+                        (filter (fn [[_ v]] (pos? v))))
+                  v))))
 
-(defn rang? [timer] (not (@timers timer)))
+(defn rang? [timer]
+  (not ((:timers @(q/state-atom)) timer)))
 
 (defn cooldown
   [n f]
@@ -264,8 +265,6 @@
         (sequential? color) color
         (nil? color) [0 0 0 0]
         :else [color]))
-
-
 
 (defn ->hsb
   [color]
@@ -753,6 +752,32 @@
                                (+ (second position)
                                   y))))))))
 
+(defn flash-shine-1
+  [{:as entity
+    :keys [shine activation-shine-colors activation-shine
+           activation-shine-speed]}
+   flash-val
+   {:keys [high low]}]
+  (if (:hidden? entity)
+    entity
+    (if flash-val
+      (let [shine (or shine 0)
+            shine (+ shine
+                     (* *dt*
+                        flash-val
+                        (or activation-shine-speed 1)))]
+        (assoc entity
+          :shine shine
+          :color
+            ;; defs/white
+            (q/lerp-color
+              (->hsb (or low (q/color 40 96 255 255)))
+              (->hsb (or high (q/color 100 255 255)))
+              (Math/sin shine)
+              ;; (q/norm 0 1 (Math/sin shine))
+            )))
+      entity)))
+
 (defn activation-shine
   [{:as entity
     :keys [activation shine activation-shine-colors
@@ -760,25 +785,13 @@
   ;; The lerp color part is relatively expensive,
   ;; if I have 1000+ entities
   ;;
-  (if (:hidden? entity)
+  (if (or (:hidden? entity)
+          (not activation-shine)
+          (not activation))
     entity
-    (if (and activation activation-shine)
-      (let [shine (or shine 0)
-            shine (+ shine
-                     (* *dt*
-                        activation
-                        (or activation-shine-speed 1)))]
-        (assoc entity
-          :shine shine
-          :color
-            ;; defs/white
-            (q/lerp-color
-              (->hsb (or (:low activation-shine-colors)
-                         (q/color 40 96 255 255)))
-              (->hsb (or (:high activation-shine-colors)
-                         (q/color 100 255 255)))
-              (normalize-value-1 0 1 (Math/sin shine)))))
-      entity)))
+    (flash-shine-1 entity
+                   activation
+                   activation-shine-colors)))
 
 (defmulti update-sensor (fn [sensor _env] (:modality sensor)))
 
@@ -1457,15 +1470,11 @@
           (do (reset! done? true) (apply cb args)))))))
 
 (def event-queue (atom []))
-
 (defmulti event!
-  (fn [e _]
-    (def foo e)
-    (if (fn? e) :fn (or (:kind e) e))))
+  (fn [e _] (if (fn? e) :fn (or (:kind e) e))))
+
 (defmethod event! :default [f s] (f s))
 (defmethod event! :fn [f s] (f s))
-
-;; (event! (fn [e] e) {})
 
 (defn apply-events
   ([state eventq]
@@ -1475,7 +1484,6 @@
              (reset! eventq [])
              r)))
   ([state] (apply-events state event-queue)))
-
 
 (defn dart-distants-to-middle
   [{:as entity :keys [darts?]}]
@@ -1777,25 +1785,8 @@
          {:clone-source (:id e) :clone? true}))
 
 
-;; (defn cooldown
-;;   [n-seconds k op]
-;;   (let [left-in-window (atom n-seconds)
-;;         event-count-left (atom k)]
-;;     (fn [& args]
-;;       (print left-in-window *dt*)
-;;       (swap! left-in-window - *dt*)
-;;       (println @left-in-window)
-;;       (if (< 0 @left-in-window)
-;;         (when (< 0 @event-count-left)
-;;           (swap! event-count-left dec)
-;;           (apply op args))
-;;         (do
-;;           (println "reset")
-;;           (reset! left-in-window n-seconds)
-;;           (reset! event-count-left k)
-;;           nil)))))
-
 (defmulti setup-version (comp keyword :v :controls))
+(defmethod setup-version :default [s] s)
 
 (defn from-right [amount]
   (- (q/width) amount))
