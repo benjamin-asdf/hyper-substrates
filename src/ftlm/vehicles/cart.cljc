@@ -1,6 +1,8 @@
 (ns ftlm.vehicles.cart
   (:require
+   [emmy.env :as e]
    [clojure.walk :as walk]
+   [bennischwerdtner.hd.ui.audio :as audio]
    [ftlm.vehicles.art.extended :as elib]
    [ftlm.vehicles.art.defs :as defs]
    [ftlm.vehicles.art.lib :as lib]
@@ -14,45 +16,45 @@
                           :shuffle-anchor? (#{:smell}
                                             modality)}
         sensor-left-opts
-          (merge
-            sensor-left-opts
-            (when (= modality :smell)
-              {:activation-shine-colors
-               {:high (:misty-rose defs/color-map)
-                :low (:heliotrope defs/color-map)}
+        (merge
+         sensor-left-opts
+         (when (= modality :smell)
+           {:activation-shine-colors
+            {:high (:misty-rose defs/color-map)
+             :low (:heliotrope defs/color-map)}
 
 
-               :fragrance (rand-nth [:oxygen
-                                     :organic-matter])})
-            (when (= modality :temperature)
-              {:hot-or-cold (rand-nth [:hot :cold])}))
+            :fragrance (rand-nth [:oxygen
+                                  :organic-matter])})
+         (when (= modality :temperature)
+           {:hot-or-cold (rand-nth [:hot :cold])}))
         sensor-right-opts (assoc sensor-left-opts
-                            :anchor :top-right)
+                                 :anchor :top-right)
         decussates? (rand-nth [true false])
         sensor-left-id (random-uuid)
         sensor-right-id (random-uuid)
         transduction-fn (rand-nth [:excite :inhibit])]
     (case modality
       :temperature
-        [[:cart/sensor sensor-left-id
-          (assoc sensor-left-opts
-            :anchor :middle-middle
-            :activation-shine-colors
-              ({:cold {:high {:h 196 :s 26 :v 100}
-                       :low defs/white}
-                :hot {:high (:hit-pink defs/color-map)
-                      :low defs/white}}
-               (:hot-or-cold sensor-left-opts)))]
-         [:brain/connection :_
-          {:bezier-line (lib/rand-bezier 5)
-           :destination [:ref motor-left]
-           :f transduction-fn
-           :source [:ref sensor-left-id]}]
-         [:brain/connection :_
-          {:bezier-line (lib/rand-bezier 5)
-           :destination [:ref motor-right]
-           :f transduction-fn
-           :source [:ref sensor-left-id]}]]
+      [[:cart/sensor sensor-left-id
+        (assoc sensor-left-opts
+               :anchor :middle-middle
+               :activation-shine-colors
+               ({:cold {:high {:h 196 :s 26 :v 100}
+                        :low defs/white}
+                 :hot {:high (:hit-pink defs/color-map)
+                       :low defs/white}}
+                (:hot-or-cold sensor-left-opts)))]
+       [:brain/connection :_
+        {:bezier-line (lib/rand-bezier 5)
+         :destination [:ref motor-left]
+         :f transduction-fn
+         :source [:ref sensor-left-id]}]
+       [:brain/connection :_
+        {:bezier-line (lib/rand-bezier 5)
+         :destination [:ref motor-right]
+         :f transduction-fn
+         :source [:ref sensor-left-id]}]]
       [[:cart/sensor sensor-left-id sensor-left-opts]
        [:cart/sensor sensor-right-id sensor-right-opts]
        [:brain/connection :_
@@ -249,7 +251,158 @@
                   :components (into [] (map :id) comps))]
           comps)))
 
+(defn vehicle-death
+  [s e]
+  (future
+    (audio/play!
+     (audio/->audio {:duration 0.1
+                     :frequency 600}))
+    (audio/play!
+     (audio/->audio
+      {:duration 0.1
+       :frequency 150})))
+  (let [new-e (-> e
+                  (assoc :lifetime 0.2)
+                  (lib/live (lib/->grow 0.1)))]
+    (-> (lib/+explosion s e)
+        (assoc-in [:eid->entity (:id e)] new-e))))
 
+
+
+
+(def default-vehicle
+  {:body {:collides? true
+          :color defs/white
+          :on-double-click-map
+          {:die (fn [e s k]
+                  {:updated-state (vehicle-death s e)})}
+          :scale 0.4
+          :stroke-weight 0}
+   :components (concat
+                [[:cart/motor :motor-bottom-right
+                  {:anchor :bottom-right
+                   :corner-r 5
+                   :hidden? true
+                   :on-update [(lib/->cap-activation)]
+                   :rotational-power 0.02}]
+                 [:cart/motor :motor-bottom-left
+                  {:anchor :bottom-left
+                   :corner-r 5
+                   :hidden? true
+                   :on-update [(lib/->cap-activation)]
+                   :rotational-power 0.02}]])})
+
+(def exploration-arousal
+  [[:brain/neuron :exploration-arousal
+    {;; :arousal 1
+     :arousal-neuron? true
+     :on-update [(fn [e _]
+                   (update-in e
+                              [:activation]
+                              (fnil + 0)
+                              (abs
+                                (lib/normal-distr 1 1))))]}]
+   [:brain/connection :_
+    {:destination [:ref :motor-bottom-right]
+     :f :excite
+     :hidden? true
+     :on-update-map
+       {:gain (lib/every-n-seconds
+                0.2
+                (fn [e s k]
+                  (assoc-in e
+                    [:transduction-model :gain]
+                    (+ 0.5 (lib/normal-distr 0.1 0.1)))))}
+     :source [:ref :exploration-arousal]}]
+   [:brain/connection :_
+    {:destination [:ref :motor-bottom-left]
+     :f :excite
+     :hidden? true
+     :on-update-map
+       {:gain (lib/every-n-seconds
+                0.2
+                (fn [e s k]
+                  (assoc-in e
+                    [:transduction-model :gain]
+                    (+ 0.5 (lib/normal-distr 0.1 0.1)))))}
+     :source [:ref :exploration-arousal]}]])
+
+(defn ray-sensor
+  [id opts]
+  [:cart/sensor id (merge {:modality :rays} opts)])
+
+(defn gaussian
+  [mu sigma]
+  (fn [x]
+    (let [z (/ (- x mu) sigma)]
+      (* (/ 1 (* sigma (Math/sqrt (* 2 Math/PI))))
+         (Math/exp (/ (* -1 z z) 2))))))
+
+(def default-ray-sensors-top
+  [[:cart/sensor :ray-top-left
+    {:anchor :top-left :modality :rays}]
+   [:cart/sensor :ray-top-right
+    {:anchor :top-right :modality :rays}]])
+
+(def thevalues (atom []))
+
+(defn vehicle-4a-wires
+  []
+  (let [gain-gene {:mu (rand-int 20)
+                   :sigma (inc (rand-int 50))
+                   :x-val (rand-int 100)}]
+    (update default-vehicle
+            :components
+            concat
+            default-ray-sensors-top
+            ;; exploration-arousal
+            [[:brain/connection :_
+              {:destination [:ref :motor-bottom-left]
+               :f :excite
+               :gain (fn [v]
+                       (* (:x-val gain-gene)
+                          ((gaussian (:mu gain-gene)
+                                     (:sigma gain-gene))
+                           v)))
+               :hidden? true
+               :source [:ref :ray-top-right]}]
+             [:brain/connection :_
+              {:destination [:ref :motor-bottom-right]
+               :f :excite
+               :gain (fn [v]
+                       (* (:x-val gain-gene)
+                          ((gaussian (:mu gain-gene)
+                                     (:sigma gain-gene))
+                           v)))
+               :hidden? true
+               :source [:ref :ray-top-left]}]])))
+
+
+(defn vehilce-2b-wires
+  []
+  (-> default-vehicle
+      (update :components
+              concat
+              default-ray-sensors-top
+              exploration-arousal
+              [[:brain/connection :_
+                {:destination [:ref :motor-bottom-left]
+                 :f :excite
+                 :hidden? true
+                 :source [:ref :ray-top-right]}]
+               [:brain/connection :_
+                {:destination [:ref :motor-bottom-right]
+                 :f :excite
+                 :hidden? true
+                 :source [:ref :ray-top-left]}]])
+      ;; (assoc-in
+      ;;  [:body :color]
+      ;;  (defs/color-map :navajo-white))
+      ))
+
+
+
+;; (defn vehicle-1 ([] (vehicle-1 {})) ([body-opts] (let [cart (cart/->cart)] cart)))
 
 #_(defn some-rand-environment-things
     [defs n]

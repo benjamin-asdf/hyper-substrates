@@ -184,7 +184,7 @@
                   v))))
 
 (defn rang? [timer]
-  (not ((:timers @(q/state-atom)) timer)))
+  (not ((:timers @(q/state-atom) {}) timer)))
 
 (defn cooldown
   [n f]
@@ -874,7 +874,7 @@
 (def connection->destination (comp :destination :transduction-model))
 
 (defn transduce-signal
-  [destination source {:keys [f gain signal-function]}]
+  [destination source {:keys [f gain signal-function id]}]
   (let [gain (cond (number? gain) #(* gain %)
                    (fn? gain) gain
                    :else identity)]
@@ -884,6 +884,7 @@
             (if signal-function
               (signal-function source destination)
               (gain (f (:activation source 0)))))))
+
 
 (defn transduce-signals
   [state]
@@ -898,6 +899,7 @@
                         e-lut
                         models)]
     (assoc state :eid->entity new-lut)))
+
 
 (defn mid-point [] [(/ (q/width) 2)
                     (/ (q/height) 2)])
@@ -1652,39 +1654,37 @@
 
 (defn mouse-pressed
   [state event]
-  (println "mouse-pressed")
   (if-not (inside-canvas? (q/mouse-x) (q/mouse-y))
     state
     (let [draggable-or-clickable (find-closest-draggable
-                                  state)]
+                                   state)]
       (if draggable-or-clickable
         (let [new-selection {:id (:id
-                                  draggable-or-clickable)
+                                   draggable-or-clickable)
                              :time (q/millis)}
               old-selection (:selection state)
               state (-> state
                         (assoc :pressed true)
                         (assoc-in [:eid->entity
                                    (:id
-                                    draggable-or-clickable)
+                                     draggable-or-clickable)
                                    :dragged?]
                                   (:draggable?
-                                   draggable-or-clickable))
+                                    draggable-or-clickable))
                         (assoc :selection new-selection))
               state ((->call-callbacks :on-click-map)
-                     state
-                     draggable-or-clickable)
+                      state
+                      draggable-or-clickable)
               state (if-not (:draggable?
-                             draggable-or-clickable)
+                              draggable-or-clickable)
                       state
                       ((->call-callbacks :on-drag-start-map)
-                       state
-                       draggable-or-clickable))]
-          (println draggable-or-clickable)
+                        state
+                        draggable-or-clickable))]
           (cond-> state
             (double-clicked? old-selection new-selection)
-            (on-double-click (:id
-                              draggable-or-clickable))))
+              (on-double-click (:id
+                                 draggable-or-clickable))))
         state))))
 
 (defn mouse-released
@@ -1819,19 +1819,20 @@
 (defn ->connection
   [{:as opts
     :keys [source destination hidden? bezier-line f]}]
-  (-> (merge opts
-             (cond hidden? (->entity :hidden-connection)
-                   bezier-line (->connection-bezier-line
-                                 source
-                                 destination)
-                   :else (->connection-line source
-                                            destination))
-             {:connection? true
-              :hidden? hidden?
-              :transduction-model (->transdution-model
-                                    (:id source)
-                                    (:id destination)
-                                    f)})
+  (-> (merge
+        opts
+        (cond hidden? (->entity :hidden-connection)
+              bezier-line (->connection-bezier-line
+                            source
+                            destination)
+              :else (->connection-line source destination))
+        {:connection? true
+         :hidden? hidden?
+         :transduction-model
+           (merge (->transdution-model (:id source)
+                                       (:id destination)
+                                       f)
+                  (select-keys opts [:gain]))})
       (suicide-packt [source destination])))
 
 (defn kill-some

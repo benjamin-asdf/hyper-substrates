@@ -155,41 +155,43 @@
     :keys [width height sketch-id]
     :or {height 800 width 1000}}]
   (q/sketch
-   :events-q {:sketch-id sketch-id}
-   :size
-   ;; hard coding my monitor, else it was going to
-   ;; another monitor
-   [1920 1080]
-   ;; [500 500]
-   :setup (partial setup controls)
-   :update #'update-state
-   :draw #'draw-state
-   ;; :features [:keep-on-top]
-   :middleware [m/fun-mode m/navigation-2d
-                picture-jitter/picture-jitter
-                evtq/events-middleware time-warp/time-warp]
-   :navigation-2d {:modifiers {:mouse-dragged #{:shift}
-                               :mouse-wheel #{:shift}}}
-   :title "hyper-substrates"
-   :key-released (fn [state event] state)
-   :mouse-pressed (fn [s e]
-                    (if (and (q/key-pressed?)
-                             (= (q/key-modifiers)
-                                #{:shift}))
-                      s
-                      (lib/mouse-pressed s e)))
-   :mouse-dragged (fn [s e] s)
-   :mouse-released (fn [s e]
+    :events-q {:sketch-id sketch-id}
+    :size
+      ;; hard coding my monitor, else it was going to
+      ;; another monitor
+      [1920 1080]
+    ;; [500 500]
+    :setup (comp (:setup controls identity)
+                 (partial setup controls))
+    :update #'update-state
+    :draw #'draw-state
+    ;; :features [:keep-on-top]
+    :middleware [m/fun-mode m/navigation-2d
+                 picture-jitter/picture-jitter
+                 evtq/events-middleware time-warp/time-warp]
+    :navigation-2d {:modifiers {:mouse-dragged #{:shift}
+                                :mouse-wheel #{:shift}}}
+    :title "hyper-substrates"
+    :key-released (fn [state event] state)
+    :mouse-pressed (fn [s e]
                      (if (and (q/key-pressed?)
                               (= (q/key-modifiers)
                                  #{:shift}))
                        s
-                       (lib/mouse-released s e)))
-   :mouse-wheel (fn [s e]
-                  (if (and (q/key-pressed?)
-                           (= (q/key-modifiers) #{:shift}))
-                    s
-                    (lib/mouse-wheel s e)))))
+                       (lib/mouse-pressed s e)))
+    :mouse-dragged (fn [s e] s)
+    :mouse-released (fn [s e]
+                      (if (and (q/key-pressed?)
+                               (= (q/key-modifiers)
+                                  #{:shift}))
+                        s
+                        (lib/mouse-released s e)))
+    :mouse-wheel (fn [s e]
+                   (if (and (q/key-pressed?)
+                            (= (q/key-modifiers) #{:shift}))
+                     s
+                     (lib/mouse-wheel s e)))))
+
 
 (defn activation-flash
   [e base-color high-color kont]
@@ -238,29 +240,34 @@
          s
          (lib/append-ents
            (mapcat identity
-             (for [p (repeatedly
-                       5
-                       (fn []
-                         (let [pos (mapv +
-                                     (lib/position e)
-                                     (mapv #(* 50 %)
-                                       (q/random-2d)))
-                               rotation ((if clockwise? + -)
-                                          (lib/angle-between
-                                            (lib/position e)
-                                            pos)
-                                          q/HALF-PI)]
-                           (lib/->entity
-                             :circle
-                             {:color (lib/->hsb-vec
-                                       defs/white)
-                              :lifetime 2
-                              :acceleration 100
-                              ;; :angular-velocity 20
-                              :transform (lib/->transform
-                                           pos
-                                           10 10
-                                           1 rotation)}))))]
+             (for [p
+                   (repeatedly
+                    5
+                    (fn []
+                      (let [pos (mapv +
+                                      (lib/position e)
+                                      (mapv #(* 50 %)
+                                            (q/random-2d)))
+                            rotation ((if clockwise? + -)
+                                      (lib/angle-between
+                                       (lib/position e)
+                                       pos)
+                                      q/HALF-PI)]
+                        (lib/->entity
+                         :circle
+                         {:color (lib/->hsb-vec
+                                  defs/white)
+                          :lifetime 2
+                          :acceleration 100
+                          ;; :angular-velocity 20
+                          :transform
+                          (lib/->transform
+                           pos
+                           20
+                           20
+                           1
+                           rotation)
+                          }))))]
                [p
                 (assoc (lib/->connection-line p e)
                   :z-index -5
@@ -292,153 +299,187 @@
                                         size
                                         1))})])))))})
 
+
 (defn ->ray-source
   ([] (->ray-source (lib/mid-point)))
   ([pos]
    (let [[e]
-           (lib/->ray-source
-             {:activation-shine-colors
-                {:high (:cyan defs/color-map)
-                 :low defs/black}
-              :color (:white defs/color-map)
-              :intensity 20
-              :intensity-factor 1
-              :kinetic-energy 0.2
-              :mass 1e5
-              :on-collide-map
-                {:burst (lib/cooldown
-                          (fn []
-                            (lib/normal-distr 2 (q/sqrt 2)))
-                          lib/burst)
-                 :intensity
-                   (fn [e other s k]
-                     #_(audio/play!
-                         (audio/->audio
-                           {:duration 0.2
-                            :frequency
-                              (+ 150 (* 50 (rand-int 3)))}))
-                     (-> e
-                         (update :intensity inc)
-                         (update-in [:transform :scale]
-                                    +
-                                    0.01)))}
-              :on-double-click-map
-                {:orient-towards-me
-                   (fn [e s k]
-                     {:updated-state (lib/update-ents
-                                       s
-                                       (fn [ent]
-                                         (lib/orient-towards
-                                           ent
-                                           (lib/position
-                                             e))))})}
-              :on-drag-start-map
-                {:survive (fn [e s k] (dissoc e :lifetime))}
-              :particle? true
-              :pos pos
-              :scale 0.75
-              :shinyness nil
-              :transform (lib/->transform
-                           (lib/rand-on-canvas-gauss 0.2)
-                           100
-                           100
-                           1)})]
+         (lib/->ray-source
+          {:activation-shine-colors
+           {:high (:cyan defs/color-map)
+            :low defs/black}
+           :color (:white defs/color-map)
+           :intensity 20
+           :intensity-factor 1
+           :kinetic-energy 0.2
+           :mass 1e5
+           :on-collide-map
+           {:burst (lib/cooldown
+                    (fn []
+                      (lib/normal-distr 2 (q/sqrt 2)))
+                    lib/burst)
+            :intensity
+            (fn [e other s k]
+              #_(audio/play!
+                 (audio/->audio
+                  {:duration 0.2
+                   :frequency
+                   (+ 150 (* 50 (rand-int 3)))}))
+              (-> e
+                  (update :intensity inc)
+                  (update-in [:transform :scale]
+                             +
+                             0.01)))}
+           :on-double-click-map
+           {:orient-towards-me
+            (fn [e s k]
+              {:updated-state (lib/update-ents
+                               s
+                               (fn [ent]
+                                 (lib/orient-towards
+                                  ent
+                                  (lib/position
+                                   e))))})}
+           :on-drag-start-map
+           {:survive (fn [e s k] (dissoc e :lifetime))}
+           :particle? true
+           :pos pos
+           :scale 0.75
+           :shinyness nil
+           :transform (lib/->transform
+                       (lib/rand-on-canvas-gauss 0.2)
+                       100
+                       100
+                       1)})]
      (->
-       e
-       (lib/live (lib/every-now-and-then 2 holy-shine-anim))
-       (lib/live (lib/every-now-and-then
-                   10
-                   (fn [e s k]
-                     (-> e
-                         (assoc-in [:transform :scale] 1)
-                         (assoc-in [:intensity] 20)
-                         (assoc-in [:intensity-factor]
-                                   1)))))
-       (lib/live [:shine
-                  (fn [e s k]
-                    (lib/flash-shine-1
-                      e
-                      (/ (:intensity e) 200)
-                      {:high (defs/color-map :white
-                                             ;; :cyan
+      e
+      ;; (lib/live (lib/every-now-and-then 0.2
+      ;; holy-shine-anim))
+      (lib/live (lib/every-now-and-then
+                 10
+                 (fn [e s k]
+                   (-> e
+                       (assoc-in [:transform :scale] 1)
+                       (assoc-in [:intensity] 20)
+                       (assoc-in [:intensity-factor]
+                                 1)))))
+      (lib/live [:shine
+                 (fn [e s k]
+                   (lib/flash-shine-1
+                    e
+                    (/ (:intensity e) 200)
+                    {:high (defs/color-map :white
+                             ;; :cyan
                              )
-                       :low defs/black}))])
-       #_(lib/live
-           [:rays
-            (lib/every-n-seconds
-              (fn [] (lib/normal-distr 1 1))
-              (fn [e s _]
-                {:updated-state
-                   (let [bodies (into []
-                                      (filter :block?
-                                        (lib/entities s)))]
-                     (let [bodies (take 5 (shuffle bodies))]
-                       (reduce
-                         (fn [s b]
-                           (->
-                             s
-                             (lib/append-ents
-                               [(merge
-                                  (lib/->connection-bezier-line
-                                    e
-                                    b)
-                                  {:lifetime
-                                     (lib/normal-distr
-                                       2
-                                       1)})])))
-                         s
-                         bodies)))}))])
-       #_(lib/live [:colors
-                    (lib/every-n-seconds
-                      0.5
-                      (fn [e s k]
-                        (assoc e
-                          :color (defs/color-map
-                                   (rand-nth
-                                     [:green-yellow
-                                      :deep-pink])))))])
-       #_(lib/live [:kinetic
-                    (lib/every-n-seconds
-                      5
-                      (fn [e s k]
-                        (assoc e
-                          :kinetic-energy
-                            (lib/normal-distr 5 2))))])
-       (lib/live
-         [:circular-shine-radio
+                     :low defs/black}))])
+      #_(lib/live
+         [:rays
           (lib/every-n-seconds
-            (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
-            (fn [ray s k]
-              {:updated-state
-                 (lib/append-ents
+           (fn [] (lib/normal-distr 1 1))
+           (fn [e s _]
+             {:updated-state
+              (let [bodies (into []
+                                 (filter :block?
+                                         (lib/entities s)))]
+                (let [bodies (take 5 (shuffle bodies))]
+                  (reduce
+                   (fn [s b]
+                     (->
+                      s
+                      (lib/append-ents
+                       [(merge
+                         (lib/->connection-bezier-line
+                          e
+                          b)
+                         {:lifetime
+                          (lib/normal-distr
+                           2
+                           1)})])))
                    s
-                   [(let [e (lib/->circular-shine-1 ray)]
-                      (->
-                        e
-                        (assoc :color (lib/with-alpha
-                                        (:yellow
-                                          defs/color-map)
-                                        0))
-                        (assoc :stroke-weight 3)
-                        (assoc :stroke (:color ray))
-                        (assoc :on-update
-                                 [(lib/->grow
-                                    (* 2
-                                       (+ 1
-                                          (:intensity-factor
-                                            ray
-                                            0))))])
-                        (assoc :lifetime
-                                 (* 5
-                                    (lib/normal-distr
-                                      3
-                                      (Math/sqrt
-                                        3))))))])}))])
-       (lib/live [:intensity-osc update-intensity-osc])))))
+                   bodies)))}))])
+      #_(lib/live [:colors
+                   (lib/every-n-seconds
+                    0.5
+                    (fn [e s k]
+                      (assoc e
+                             :color (defs/color-map
+                                      (rand-nth
+                                       [:green-yellow
+                                        :deep-pink])))))])
+      #_(lib/live [:kinetic
+                   (lib/every-n-seconds
+                    5
+                    (fn [e s k]
+                      (assoc e
+                             :kinetic-energy
+                             (lib/normal-distr 5 2))))])
+      (lib/live
+       [:circular-shine-radio
+        (lib/every-n-seconds
+         (fn [] (lib/normal-distr (/ 1.5 3) (/ 1.5 3)))
+         (fn [ray s k]
+           {:updated-state
+            (lib/append-ents
+             s
+             [(let [e (lib/->circular-shine-1 ray)]
+                (->
+                 e
+                 (assoc :color (lib/with-alpha
+                                 (:yellow
+                                  defs/color-map)
+                                 0))
+                 (assoc :stroke-weight 3)
+                 (assoc :stroke (:color ray))
+                 (assoc :on-update
+                        [(lib/->grow
+                          (* 2
+                             (+ 1
+                                (:intensity-factor
+                                 ray
+                                 0))))])
+                 (assoc :lifetime
+                        (* 5
+                           (lib/normal-distr
+                            3
+                            (Math/sqrt
+                             3))))))])}))])
+      (lib/live [:intensity-osc update-intensity-osc])))))
+
+;; (let [ents-s (atom nil)]
+;;   (def add-ray-source
+;;     (fn [state]
+;;       (let [state
+;;               (if @ents-s
+;;                 (let [current-ents @ents-s]
+;;                   (lib/update-ents
+;;                     state
+;;                     (fn [e]
+;;                       (if-let [old-e (current-ents (:id e))]
+;;                         (merge (->ray-source)
+;;                                (select-keys
+;;                                  ((lib/entities-by-id state)
+;;                                    old-e)
+;;                                  [:transform]))
+;;                         e))))
+;;                 (let [ents [(->ray-source)]]
+;;                   (reset! ents-s (into #{} (map :id) ents))
+;;                   (lib/append-ents state ents)))]
+;;         state))))
+
 
 (defn add-ray-source
   [state]
-  (lib/append-ents state [(->ray-source)]))
+  (let [ents [(->ray-source)]]
+    (lib/append-ents state ents)))
+
+(comment
+  (def foo 10)
+  (defonce fooa (atom nil))
+
+  (reset! fooa #'foo)
+
+  (= foo @fooa)
+  (= #'foo @fooa))
 
 (defonce aggression (atom 0))
 
@@ -1045,29 +1086,29 @@
                                  0))))])
                  (assoc :lifetime (lib/normal-distr
                                    2
-                                   1))))])}))])
-      (lib/live [:intensity-osc update-intensity-osc])))))
+                                   1))))])}))])))))
 
 
-(do
-  (sketch
-   {:background-color 0
-    :height nil
-    :time-speed 3.5
-    :v :vehicle-1
-    :sketch-id :s
-    :width nil})
 
-  ;; (swap! lib/event-queue assoc-in [] (fnil conj
-  ;; []) add-ray-source)
-  (swap! lib/event-queue (fnil conj []) vehicles))
+(sketch
+ {:background-color 0
+  :height nil
+  :setup (comp add-ray-source)
+  :sketch-id :s
+  :time-speed 3.5
+  :v :vehicle-1
+  :width nil})
+
+
+
 
 (comment
 
 
-  (evtq/append-event! vehicles)
-
   (evtq/append-event! add-ray-source)
+
+
+
   (evtq/append-event!
    (fn  [state]
      (lib/append-ents state
