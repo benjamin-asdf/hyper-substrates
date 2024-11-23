@@ -49,10 +49,20 @@
   (q/state :controls))
 
 (defonce eid-counter (atom 0))
+;; entity-index
 (let [->eid #(swap! eid-counter inc)]
+  (defn ->entity-1
+    [kind id]
+    {:entity? true
+     :id id
+     :kind kind
+     :spawn-time (q/millis)
+     :world :default})
   (defn ->entity
-    ([kind opts] (merge (->entity kind) opts))
-    ([kind] {:id (->eid) :kind kind :spawn-time (q/millis) :entity? true :world :default})))
+    ([kind opts]
+     (merge (->entity-1 kind (:unique-id opts (->eid)))
+            opts))
+    ([kind] (->entity-1 kind (->eid)))))
 
 (defn ->transform
   ([pos width height scale]
@@ -164,7 +174,7 @@
 
 ;; ----------------------------------------
 
-(defn set-timer
+(defn set-timer-v2
   ([])
   ([seconds]
    (let [seconds (cond (number? seconds) seconds
@@ -173,7 +183,7 @@
      (swap! (q/state-atom) assoc-in [:timers id] seconds)
      id)))
 
-(defn update-timers
+(defn update-timers-v2
   [state]
   (update state
           :timers
@@ -183,10 +193,41 @@
                         (filter (fn [[_ v]] (pos? v))))
                   v))))
 
-(defn rang? [timer]
-  (not ((:timers @(q/state-atom) {}) timer)))
+(defn rang-v2? [timer]
+  (not ((:timers @(q/state-atom)) timer)))
 
-(defn cooldown
+(defn cooldown-v2
+  [n f]
+  (let [t (atom nil)]
+    (fn [& args]
+      (when (rang-v2? @t)
+        (reset! t (set-timer-v2 n))
+        (apply f args)))))
+
+;; --------------------------------------
+
+(defonce timers (atom {}))
+
+(defn set-timer
+  [seconds]
+  (let [seconds (cond (number? seconds) seconds
+                      :else (seconds))
+        id (random-uuid)]
+    (swap! timers assoc id seconds)
+    id))
+
+(defn update-timers
+  [dt]
+  (swap! timers (fn [v]
+                  (into {}
+                        (comp
+                          (map (fn [[k v]] [k (- v dt)]))
+                          (filter (fn [[_ v]] (pos? v))))
+                        v))))
+
+(defn rang? [timer] (not (@timers timer)))
+
+(defn ^{:deprecated true} cooldown
   [n f]
   (let [t (atom nil)]
     (fn [& args]
@@ -508,10 +549,10 @@
                     :particle? true
                     :sensor? true
                     :transform
-                    (->transform [0 0] 20 20 scale)}
+                      (->transform [0 0] 20 20 scale)}
                    opts)
       (= modality :temperature)
-      (+temperature-sensitivity))))
+        (+temperature-sensitivity))))
 
 (defn ->motor
   [{:as opts :keys [scale width height]}]
@@ -541,8 +582,6 @@
    (fn [e _]
      (update e :activation
              (fnil #(max at %) 0)))))
-
-;; (update {} :foo (fnil #(max 10 %) 0))
 
 (defn normalize-value-1
   [min max value]
@@ -648,14 +687,22 @@
                   (assoc-in [:transform :scale] scale)))
             ent))))))
 
+;; [:ftlm.entity/ref]
+#_(defn resolve-temp-ids [ents]
+  ;; build refs
+  ;; (clojure.walk/postwalk)
+  ;; [:ref :tempid]
+  ;; -> becomes the id
+    )
+
 (defn append-ents
   [state ents]
   (let [ents (flatten-components ents)]
     (-> state
         (update
-          :eid->entity
-          merge
-          (into {} (map (juxt :id validate-entity)) ents))
+         :eid->entity
+         merge
+         (into {} (map (juxt :id validate-entity)) ents))
         track-components)))
 
 (defn draw-entities-1
@@ -852,7 +899,6 @@
 
 (defn activation-decay
   [{:as entity :keys [activation]}]
-  entity
   (if activation
     (let [sign (signum activation)
           activation (* sign
@@ -1781,9 +1827,11 @@
 
 (defn clone-entity
   [e]
-  (merge (->entity (:kind e) (dissoc e :id))
-         {:clone-source (:id e) :clone? true}))
-
+  (merge
+   (->entity
+    (:kind e)
+    (dissoc e :id :unique-id))
+   {:clone-source (:id e) :clone? true}))
 
 (defmulti setup-version (comp keyword :v :controls))
 (defmethod setup-version :default [s] s)

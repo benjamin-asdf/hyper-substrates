@@ -506,19 +506,19 @@
        [
         ;; (world-grid)
         ;; (glooby-view)
-        (blerp-retina {:color (:orange defs/color-map)
-                       :grid-width grid-width
-                       :interactions [[:attracted
-                                       :heliotrope]]
-                       :particle-id :orange
-                       :pos [50 50]
-                       :spacing 20})
-        (blerp-retina {:color (:heliotrope defs/color-map)
-                       :grid-width grid-width
-                       :interactions [[:attracted :orange]]
-                       :particle-id :heliotrope
-                       :pos [50 50]
-                       :spacing 20})
+        ;; (blerp-retina {:color (:orange defs/color-map)
+        ;;                :grid-width grid-width
+        ;;                :interactions [[:attracted
+        ;;                                :heliotrope]]
+        ;;                :particle-id :orange
+        ;;                :pos [50 50]
+        ;;                :spacing 20})
+        ;; (blerp-retina {:color (:heliotrope defs/color-map)
+        ;;                :grid-width grid-width
+        ;;                :interactions [[:attracted :orange]]
+        ;;                :particle-id :heliotrope
+        ;;                :pos [50 50]
+        ;;                :spacing 20})
         (blerp-retina {:color (:green-yellow defs/color-map)
                        :grid-width grid-width
                        :interactions [[:attracted :orange]]
@@ -532,6 +532,11 @@
          :berp-retina-f
          :height 1200
          :width 1200})
+
+
+
+
+
 
 (comment
   (do

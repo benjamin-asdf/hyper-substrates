@@ -195,9 +195,6 @@
 ;; S - diffuses faster than P and inhibits P (~ long range inhibition)
 ;;
 
-
-
-
 ;; --------------
 
 (defn grid-field
@@ -259,9 +256,6 @@
   ([s] (read-hdv s hd/default-opts))
   ([{:keys [activations size]}
     {:bsdc-seg/keys [segment-length N]}]
-
-   ;; (py.. activations (view size size))
-
    (py/set-item!
     (torch/zeros N :device pyutils/*torch-device*)
     (builtins/slice 0 (py.. activations (size 0)))
@@ -274,7 +268,6 @@
           density)
     (to :dtype torch/float)))
 
-
 (comment
   (py/set-item!
    (py.. (torch/zeros 30) (view -1 10))
@@ -284,8 +277,6 @@
    (py.. (torch/zeros 30) (view -1 10))
    (builtins/slice 0 10)
    (py.. (torch/arange 9) (view 3 3))))
-
-
 
 ;; (defn default-update
 ;;   [weights activations]
@@ -440,7 +431,6 @@
           :activations
           vacuum-babble
           vacuum-babble-factor))
-
 
 ;; --------
 

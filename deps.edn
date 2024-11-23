@@ -6,19 +6,14 @@
     {:local/root
      "../vsa-binary-sparse-distributed-segments-clj/"}
 
-
     org.mentat/emmy {:mvn/version "0.32.0"}
     org.mentat/emmy-viewers {:mvn/version "0.3.2"}
 
-    ;; org.mentat/jsxgraph.cljs {:mvn/version "0.2.1"}
-    org.scicloj/clay {:mvn/version "2-beta23"}
-
     djblue/portal {:mvn/version "0.58.2"}
+
     quil/quil {:mvn/version "4.3.1563"}
 
-
-io.github.nextjournal/clerk {:mvn/version "0.17.1102"}
-
+    io.github.nextjournal/clerk {:mvn/version "0.17.1102"}
 
     ;; -------------------------------
     ;; controlpanel server
