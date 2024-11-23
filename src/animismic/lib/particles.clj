@@ -383,11 +383,11 @@
 (defn vacuum-babble
   [activations factor]
   (py/with-manual-gil-stack-rc-context
-    (torch/add activations
-               (torch/le (torch/rand_like activations)
-                         factor)
-               :out
-               activations)
+    (torch/add
+     activations
+     (torch/le (torch/rand_like activations) factor)
+     :out
+     activations)
     (torch/clamp_max_ activations 1))
   activations)
 

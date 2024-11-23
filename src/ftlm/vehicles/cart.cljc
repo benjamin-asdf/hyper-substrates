@@ -384,7 +384,7 @@
       (update :components
               concat
               default-ray-sensors-top
-              exploration-arousal
+              ;; exploration-arousal
               [[:brain/connection :_
                 {:destination [:ref :motor-bottom-left]
                  :f :excite
