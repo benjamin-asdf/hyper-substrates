@@ -384,7 +384,7 @@
       (update :components
               concat
               default-ray-sensors-top
-              ;; exploration-arousal
+              exploration-arousal
               [[:brain/connection :_
                 {:destination [:ref :motor-bottom-left]
                  :f :excite
@@ -398,7 +398,50 @@
       ;; (assoc-in
       ;;  [:body :color]
       ;;  (defs/color-map :navajo-white))
+  ))
+
+
+;; explore
+(defn vehilce-3b-wires
+  []
+  (-> default-vehicle
+      (update :components
+              concat
+              default-ray-sensors-top
+              exploration-arousal
+              [[:brain/connection :_
+                {:destination [:ref :motor-bottom-left]
+                 :f :inhibit
+                 :hidden? true
+                 :source [:ref :ray-top-right]}]
+               [:brain/connection :_
+                {:destination [:ref :motor-bottom-right]
+                 :f :inhibit
+                 :hidden? true
+                 :source [:ref :ray-top-left]}]])
+      ;; (assoc-in
+      ;;  [:body :color]
+      ;;  (defs/color-map :navajo-white))
       ))
+
+;; love
+(defn vehilce-3a-wires
+  []
+  (-> default-vehicle
+      (update :components
+              concat
+              default-ray-sensors-top
+              exploration-arousal
+              [[:brain/connection :_
+                {:destination [:ref :motor-bottom-left]
+                 :f :inhibit
+                 :hidden? true
+                 :source [:ref :ray-top-left]}]
+               [:brain/connection :_
+                {:destination [:ref :motor-bottom-right]
+                 :f :inhibit
+                 :hidden? true
+                 :source [:ref :ray-top-right]}]])))
 
 
 

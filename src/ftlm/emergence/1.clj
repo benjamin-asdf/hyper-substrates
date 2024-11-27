@@ -1741,12 +1741,6 @@
 ;; ----------------------------------------------------
 
 
-
-
-
-
-
-
 (do
   (sketch
    {:background-color (:midnight-purple defs/color-map)
@@ -1757,10 +1751,10 @@
 
   (swap! lib/event-queue (fnil conj []) vehicles)
 
-  (do
-    (defn add-overlay-text [state]
-      (lib/append-ents state (overlay-text)))
-    (swap! lib/event-queue (fnil conj []) add-overlay-text))
+  #_(do
+      (defn add-overlay-text [state]
+        (lib/append-ents state (overlay-text)))
+      (swap! lib/event-queue (fnil conj []) add-overlay-text))
 
   (do
     (defn add-smell-history-overview [state]

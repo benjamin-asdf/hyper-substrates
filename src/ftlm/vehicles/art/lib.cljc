@@ -76,6 +76,7 @@
 
 (def entities (comp vals :eid->entity))
 (def entities-by-id #(:eid->entity % {}))
+(defn get-entity-by-id [s id] ((entities-by-id s) id))
 
 (defn destroy [state eid]
   (update state :eid->entity dissoc eid))
@@ -193,8 +194,11 @@
                         (filter (fn [[_ v]] (pos? v))))
                   v))))
 
-(defn rang-v2? [timer]
-  (not ((:timers @(q/state-atom)) timer)))
+(defn rang-v2?
+  [timer]
+  (println (:timers @(q/state-atom)))
+  (when-let [timers (:timers @(q/state-atom))]
+    (not (timers timer))))
 
 (defn cooldown-v2
   [n f]
@@ -617,7 +621,9 @@
 
 (defn friction [e]
   (-> e
-      (update :velocity (fnil friction-1 0))
+      (cond->
+          (not (true? (:no-friction? e)))
+        (update :velocity (fnil friction-1 0)))
       (update :acceleration (fnil friction-1 0))
       (update :angular-velocity (fnil friction-1 0))
       (update :angular-acceleration (fnil friction-1 0))))
@@ -710,7 +716,7 @@
   (doseq [{:as entity :keys [color draw-functions]}
           (sort (u/by (some-fn :z-index (constantly 0))
                       u/ascending
-                      :id
+                      :spawn-time
                       u/ascending)
                 (sequence (comp (remove :hidden?)
                                 (filter validate-entity))
