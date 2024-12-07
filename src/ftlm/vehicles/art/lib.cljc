@@ -48,9 +48,25 @@
 (defn controls []
   (q/state :controls))
 
-(defonce eid-counter (atom 0))
-;; entity-index
-(let [->eid #(swap! eid-counter inc)]
+
+(defn alive? [e] (and (:entity? e) (not (:kill? e))))
+
+(let [eid-counter (atom 0)
+      ;; index -> set of eid
+      entity-indexes (atom {})
+      ->eid #(swap! eid-counter inc)]
+  (defn set-entity-index!
+    [{:keys [e-index id]}]
+    (when e-index
+      (swap! entity-indexes update
+        e-index
+        (fnil conj #{})
+        id)))
+  (defn entities-by-index
+    [state index]
+    (let [ids (-> @entity-indexes
+                  (get index #{}))]
+      (filter alive? (map (entities-by-id state) ids))))
   (defn ->entity-1
     [kind id]
     {:entity? true
@@ -60,9 +76,12 @@
      :world :default})
   (defn ->entity
     ([kind opts]
-     (merge (->entity-1 kind (:unique-id opts (->eid)))
-            opts))
-    ([kind] (->entity-1 kind (->eid)))))
+     (let [e (merge (->entity-1 kind
+                                (:unique-id opts (->eid)))
+                    opts)
+           _ (set-entity-index! e)]
+       e))
+    ([kind] (let [id (->eid)] (->entity-1 kind id)))))
 
 (defn ->transform
   ([pos width height scale]
@@ -292,24 +311,26 @@
 
 (defn ->hsb-vec
   [color]
-  (cond (string? color) (let [[h s v] (rgb->hsv color)]
-                          (->hsb-vec {:h h :s s :v v}))
-        (and (map? color)
-             (every? #(contains? color %) [:h :s :b]))
-          [(:h color) (:s color) (:b color)]
-        (and (map? color)
-             (every? #(contains? color %) [:h :s :v :a]))
-          [(* (/ (:h color) 360) 255)
-           (* 255 (/ (:s color) 100))
-           (* 255 (/ (:v color) 100)) (* 255 (:a color))]
-        (and (map? color)
-             (every? #(contains? color %) [:h :s :v]))
-          [(* (/ (:h color) 360) 255)
-           (* 255 (/ (:s color) 100))
-           (* 255 (/ (:v color) 100))]
-        (sequential? color) color
-        (nil? color) [0 0 0 0]
-        :else [color]))
+  (cond
+    (keyword? color) (->hsb-vec (defs/color-map color))
+    (string? color) (let [[h s v] (rgb->hsv color)]
+                      (->hsb-vec {:h h :s s :v v}))
+    (and (map? color)
+         (every? #(contains? color %) [:h :s :b]))
+    [(:h color) (:s color) (:b color)]
+    (and (map? color)
+         (every? #(contains? color %) [:h :s :v :a]))
+    [(* (/ (:h color) 360) 255)
+     (* 255 (/ (:s color) 100))
+     (* 255 (/ (:v color) 100)) (* 255 (:a color))]
+    (and (map? color)
+         (every? #(contains? color %) [:h :s :v]))
+    [(* (/ (:h color) 360) 255)
+     (* 255 (/ (:s color) 100))
+     (* 255 (/ (:v color) 100))]
+    (sequential? color) color
+    (nil? color) [0 0 0 0]
+    :else [color]))
 
 (defn ->hsb
   [color]
@@ -352,7 +373,7 @@
 
 (defn +state-on-update [state op] (live state op))
 
-(defn alive? [e] (and (:entity? e) (not (:kill? e))))
+
 
 (defn kill-components
   [state]

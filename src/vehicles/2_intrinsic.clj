@@ -64,22 +64,22 @@
   ;; (q/fill 255 255 255 50)
   ;; (if (< 1 (q/random 2))
   ;;   (q/color-mode :hsb))
-  ;; (q/fill
-  ;;  (lib/with-alpha
-  ;;    (lib/->hsb (defs/color-map
-  ;;                 (rand-nth
-  ;;                  [
-  ;;                   ;; :cyan
-  ;;                   :black
-  ;;                   ;; :white
-  ;;                   ]
-  ;;                  ))
-  ;;               ;; (val
-  ;;               ;;  (rand-nth
-  ;;               ;;   (into [] defs/color-map)))
-  ;;               )
-  ;;    0))
-  ;; (q/rect 0 0 (* 2 2560) (* 2 1920))
+  (q/fill
+   (lib/with-alpha
+     (lib/->hsb (defs/color-map
+                  (rand-nth
+                   [
+                    ;; :cyan
+                    :black
+                    ;; :white
+                    ]
+                   ))
+                ;; (val
+                ;;  (rand-nth
+                ;;   (into [] defs/color-map)))
+                )
+     0.1))
+  (q/rect 0 0 (* 2 2560) (* 2 1920))
   ;; (if (even? (mod (q/seconds) 2))
   ;;   (q/color-mode :hsb)
   ;;   (q/color-mode :rgb))
@@ -395,17 +395,16 @@
 
 (defmethod lib/setup-version :vehicle-4a [state] state)
 
-(defn vehicle-1 []
-  (cart/->cart (cart/vehilce-2b-wires)))
+(defn vehicle-1
+  []
+  (cart/->cart
+   (assoc-in (cart/vehilce-2b-wires)
+             [:body :color]
+             (defs/color-map :hit-pink))))
 
 (defn vehicles
   [state]
-  (let [entities
-        (mapcat identity
-                (repeatedly
-                 32
-                 vehicle-1
-                 ))]
+  (let [entities (mapcat identity (repeatedly 12 vehicle-1))]
     (-> state
         (lib/append-ents entities))))
 
@@ -413,352 +412,9 @@
          :height nil
          :setup (comp vehicles
                       ;; add-ray-source
-                      add-ray-source)
+                      ;; add-ray-source
+                      )
          :sketch-id :s
-         :time-speed 2
+         :time-speed 3
          :v :vehicle-4a
          :width nil})
-
-
-
-(comment
-  evtq/global-events-state
-
-  (evtq/append-event! add-ray-source)
-  (evtq/append-event! vehicles)
-
-  (evtq/append-event!
-   (fn  [state]
-     (lib/append-ents state
-                      [(->ray-source)])))
-  (evtq/append-event!
-   (fn [state] (lib/append-ents state [(temperature-bubble-spawner)])))
-  (do
-    (defn start-jitter [state]
-      (assoc-in state [:picture-jitter :jitter?] true))
-    (evtq/append-event!  start-jitter))
-  (do
-    (defn start-jitter [state]
-      (assoc-in state [:picture-jitter :jitter?] false))
-    (evtq/append-event!  start-jitter))
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/append-ents
-      state
-      (repeatedly 10 confettini))))
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/append-ents
-      state
-      [(->yellow-heart)])))
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/append-ents
-      state
-      [(->yellow-heart)])))
-
-  (do
-    (defn start-jitter [state]
-      (assoc-in state [:picture-jitter :jitter?] true))
-    (evtq/append-event! start-jitter))
-
-
-  (do
-    (defn start-jitter [state]
-      (assoc-in state [:picture-jitter :jitter?] false))
-    (evtq/append-event! start-jitter))
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      (lib/every-now-and-then
-       1
-       (fn [s k]
-         (assoc-in s
-                   [:picture-jitter :zoom-intensity]
-                   0
-                   ;; (rand-nth [0.99])
-                   ))))))
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      [:zoom-intensity
-       (lib/every-now-and-then
-        1
-        (fn [s k]
-          (assoc-in s
-                    [:picture-jitter :zoom-intensity]
-                    0
-                    ;; (rand-nth [0.99])
-                    )))])))
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      [:zoom-intensity
-       (lib/every-now-and-then
-        1
-        (fn [s k]
-          (assoc-in s
-                    [:picture-jitter :zoom-intensity]
-                    0
-                    ;; (rand-nth [0.99])
-                    )))])))
-
-
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      (lib/every-now-and-then
-       1
-       (fn [s k]
-         (assoc-in s
-                   [:picture-jitter :zoom-intensity]
-                   (rand-nth [0.999 1.001])))))))
-
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      [:connections
-       (lib/every-now-and-then
-        0.01
-        (fn [s k]
-          (lib/append-ents
-           s
-           (into
-            []
-            (let [[a b]
-                  (into [] (shuffle (lib/entities s)))]
-              [(assoc (lib/->connection-bezier-line a b)
-                      :stroke-weight 20
-                      :lifetime 1)])))))])))
-
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      (lib/every-now-and-then
-       0.1
-       (fn [s k]
-         (lib/append-ents
-          s
-          (into
-           []
-           (let [[a b] (into []
-                             (shuffle (lib/entities s)))]
-             [(assoc (lib/->connection-bezier-line a b)
-                     :stroke-weight (abs
-                                     (lib/normal-distr 5 5))
-                     :lifetime 1)]))))))))
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live state
-               [:swap-circ-rect
-                (lib/every-now-and-then
-                 0.2
-                 (fn [s k]
-                   (lib/update-ents
-                    s
-                    (fn [e]
-                      (update e
-                              :kind
-                              {:circle :rect
-                               :rect :circle})))))])))
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      [:swap-colors
-       (lib/every-now-and-then
-        1
-        (fn [s k]
-          (lib/update-ents
-           s
-           (fn [e]
-             (assoc e
-                    :color (lib/->hsb
-                            ((rand-nth
-                              ;; [:black :white :red
-                              ;; :cyan :orange :mint]
-                              [:black :white :cyan :orange]
-                              ;; [:black
-                              ;;  :black
-                              ;;  :white
-                              ;;  :red
-                              ;;  :black]
-                              )
-                             defs/color-map)))))))])))
-
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      [:swap-colors
-       (lib/every-now-and-then
-        3
-        (fn [s k]
-          (lib/update-ents
-           s
-           (fn [e]
-             (assoc e
-                    :color
-                    (lib/->hsb
-                     ((rand-nth
-                       ;; [:black :white :red
-                       ;; :cyan :orange :mint]
-                       ;; [:black :white :cyan
-                       ;; :mint]
-                       [:black :red :black :red :black
-                        :red :black :red
-                        ;; :cyan
-                        ])
-                      defs/color-map)))))))])))
-
-
-
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live state
-               [:swap-colors
-                (lib/every-now-and-then
-                 1
-                 (fn [s k]
-                   (lib/update-ents
-                    s
-                    (fn [e]
-                      (assoc e
-                             :color
-                             (lib/->hsb
-                              ((rand-nth
-                                [:cyan :orange :red]
-                                ;; [:black :white :red
-                                ;; :cyan :orange :mint]
-                                ;; [:black :white :cyan
-                                ;; :mint]
-                                )
-                               defs/color-map)))))))])))
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live state
-               [:swap-colors
-                (lib/every-now-and-then
-                 1
-                 (fn [s k]
-                   (lib/update-ents
-                    s
-                    (fn [e]
-                      (assoc e
-                             :color
-                             (lib/->hsb
-                              ((rand-nth
-                                [:black :orange :mint]
-                                ;; [:black :white :red
-                                ;; :cyan :orange :mint]
-                                ;; [:black :white :cyan
-                                ;; :mint]
-                                )
-                               defs/color-map)))))))])))
-
-
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live state
-               [:swap-colors
-                (lib/every-now-and-then 0.1 (fn [s k] s))])))
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live state
-               [:scales
-                (lib/every-now-and-then
-                 0.1
-                 (fn [s k]
-                   (lib/update-ents s
-                                    (fn [e]
-                                      (update-in e
-                                                 [:transform :scale]
-                                                 *
-                                                 (rand-nth
-                                                  [1.0001 0.999]))))))])))
-
-
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live
-      state
-      [:block-color
-       (lib/every-now-and-then
-        1
-        (fn [s k]
-          (lib/update-ents
-           s
-           (fn [e]
-             (if-not (:block? e)
-               e
-               (assoc e
-                      :color (lib/->hsb
-                              (defs/color-map
-                                (rand-nth
-                                 [:white :black])))))))))])))
-
-
-
-
-
-
-  (evtq/append-event!
-   (fn [state]
-     (lib/live state
-               [:ray-size
-                (lib/every-now-and-then
-                 0.2
-                 (fn [s k]
-                   (lib/update-ents
-                    s
-                    (fn [e]
-                      (if-not (-> e
-                                  :kind
-                                  :circle)
-                        e
-                        (update-in e
-                                   [:transform :scale]
-                                   (rand-nth
-                                    [0.9 1.1])))))))])))
-
-
-
-  (evtq/append-event!
-   #(assoc-in % [:time-warp :warps?] true))
-  (evtq/append-event!
-   #(assoc-in % [:time-warp :warps?] false)))

@@ -3,3 +3,5 @@
 /.nrepl-port
 /.cpcache/
 /__pycache__/
+/node_modules/
+/.clerk/
