@@ -51,6 +51,10 @@
 
 (defn alive? [e] (and (:entity? e) (not (:kill? e))))
 
+(def entities (comp vals :eid->entity))
+(def entities-by-id #(:eid->entity % {}))
+(defn get-entity-by-id [s id] ((entities-by-id s) id))
+
 (let [eid-counter (atom 0)
       ;; index -> set of eid
       entity-indexes (atom {})
@@ -59,9 +63,9 @@
     [{:keys [e-index id]}]
     (when e-index
       (swap! entity-indexes update
-        e-index
-        (fnil conj #{})
-        id)))
+             e-index
+             (fnil conj #{})
+             id)))
   (defn entities-by-index
     [state index]
     (let [ids (-> @entity-indexes
@@ -93,9 +97,6 @@
     :scale scale
     :width width}))
 
-(def entities (comp vals :eid->entity))
-(def entities-by-id #(:eid->entity % {}))
-(defn get-entity-by-id [s id] ((entities-by-id s) id))
 
 (defn destroy [state eid]
   (update state :eid->entity dissoc eid))
@@ -191,6 +192,67 @@
   ([mean op] (every-now-and-then mean (q/sqrt mean) op))
   ([mean stdv op]
    (every-n-seconds (fn [] (normal-distr mean stdv)) op)))
+
+
+;; ------------------------------
+
+(defn build-execution-plan
+  [execution-table]
+  (sort-by second
+           (mapcat identity
+             (for [[k t] execution-table]
+               (for [t1 (take-while
+                          #(<= %
+                               1
+                               (apply max
+                                 (map second
+                                   execution-table)))
+                          (iterate (partial + t) t))]
+                 [k t1])))))
+
+(def timeline-execution-table
+  [[:every-1of1 1]
+   [:every-2of1 (/ 1 2)]
+   [:every-3of1 (/ 1 3)]
+   [:every-4of1 (/ 1 4)]
+   [:every-1of2 2]
+   [:every-1of3 3]
+   [:every-1of4 4]])
+
+(defn update-rhythm-timeline
+  [state]
+  (update
+    state
+    :rhythm-timeline
+    (fnil (fn [{:as timeline :keys [passed execution-plan]}]
+            (if-not (seq execution-plan)
+              (-> timeline
+                  (assoc :passed 0)
+                  (assoc :execution-plan
+                         (build-execution-plan
+                          timeline-execution-table)))
+              (do
+                (def execution-plan execution-plan)
+                (let [next-execution (first execution-plan)
+                      execute? (<= (second next-execution) passed)]
+                  (cond->
+                      timeline
+                      execute?
+                      (assoc :execute (first next-execution))
+                      execute?
+                      (update :execution-plan rest)
+                      :always
+                      (update :passed + *dt*))))))
+          {:execution-plan nil :passed 0})))
+
+(defn rhythmically
+  [spec f]
+  (fn [& args]
+    (when (= spec
+             (-> (q/state)
+                 (:rhythm-timeline {})
+                 :execute))
+      (apply f args))))
 
 ;; ----------------------------------------
 

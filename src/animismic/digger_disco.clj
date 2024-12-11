@@ -75,7 +75,7 @@
                 ;;  (rand-nth
                 ;;   (into [] defs/color-map)))
                 )
-     0.1))
+     0.8))
   (q/rect 0 0 (* 2 2560) (* 2 1920))
   ;; (if (even? (mod (q/seconds) 2))
   ;;   (q/color-mode :hsb)
@@ -114,27 +114,29 @@
                  1500))]
     (binding [*dt* dt]
       (->
-        state
-        (update :t (fnil inc 0))
-        (assoc :last-tick current-tick)
-        ;; -----------------
-        lib/kill-entities
-        ;; -------------------
-        lib/apply-update-events
-        lib/update-update-functions
-        lib/update-state-update-functions
-        (lib/update-ents-parallel
-          #(update-entity % state env))
-        lib/update-late-update-map
-        lib/transduce-signals
-        ;; those 2 are heavy,
-        lib/track-components
-        lib/track-conn-lines
-        ;; also heavy:
-        lib/update-collisions
-        ;;
-        phy/physics-update-2d
-        lib/update-timers-v2))))
+       state
+       (update :t (fnil inc 0))
+       (assoc :last-tick current-tick)
+       ;; -----------------
+       lib/kill-entities
+       ;; -------------------
+       lib/apply-update-events
+       lib/update-update-functions
+       lib/update-state-update-functions
+       (lib/update-ents-parallel
+        #(update-entity % state env))
+       lib/update-late-update-map
+       lib/transduce-signals
+       ;; those 2 are heavy,
+       lib/track-components
+       lib/track-conn-lines
+       ;; also heavy:
+       lib/update-collisions
+       lib/update-rhythm-timeline
+       ;;
+
+       phy/physics-update-2d
+       lib/update-timers-v2))))
 
 
 (defn setup
@@ -194,8 +196,7 @@
 
 
 (defn activation-flash
-  [e base-color high-color kont]
-)
+  [e base-color high-color kont])
 
 (defn update-intensity-osc
   [e s _]
@@ -1088,7 +1089,7 @@
                 [:elements]
                 (fn [t]
                   (py.. (torch/ge (torch/rand_like t) 0.99)
-                        (to :dtype torch/float32))))))))))
+                    (to :dtype torch/float32))))))))))
 
 
 
@@ -1198,65 +1199,129 @@
   []
   (let [[x y] (lib/rand-on-canvas-gauss 1)]
     (-> (lib/->entity (rand-nth [:circle :rect])
-                      {:color defs/white
+                      {:color :white
                        :e-index :g-confetti
                        :gridoid? true
                        :initial-pos [x y]
                        :intensity-factor 1
                        :kinetic-energy 0.5
+                       :lifetime 15
                        :particle? true
-                       :lifetime 5
                        :stroke (:white defs/color-map)
                        :transform
                        (lib/->transform [x y] 15 15 1)})
-        (lib/live update-intensity-osc)
+        #_(lib/live update-intensity-osc)
         (lib/live (lib/->grow (lib/normal-distr 3 3)))
+        (lib/live (lib/rhythmically :every-2of1
+                                    (fn [e s k]
+                                      (update e
+                                              :color
+                                              {:black :white
+                                               :white
+                                               :black}))))
+        (lib/live (lib/rhythmically :every-1of4
+                                    (fn [e s k]
+                                      (update
+                                       e
+                                       :kind
+                                       {:circle :rect
+                                        :rect :circle}))))
         (lib/live
-          (fn [e s k]
-            (assoc e
-              :stroke-weight
-                (* 3 (abs (lib/sine-wave 1 (q/millis)))))))
-        (lib/live [:shine
+         (fn [e s k]
+           (assoc e
+                  :stroke-weight
+                  (* 3 (abs (lib/sine-wave 1 (q/millis)))))))
+        #_(lib/live [:shine
+                     (fn [e s k]
+                       (lib/flash-shine-1
+                        e
+                        (/ (:intensity e) 50)
+                        {:high
+                         ;; (defs/color-map
+                         ;; :white)
+                         (defs/color-map
+                           (rand-nth [ ;; :cyan
+                                      ;; :red
+                                      ;; :orange
+                                      ;; :red
+                                      :black :yellow]))
+                         :low defs/black}))])
+        (lib/live
+         [:circular-shine-radio
+          (lib/every-n-seconds
+           (fn [] (lib/normal-distr 5 5))
+           (fn [ray s k]
+             {:updated-state
+              (lib/append-ents
+               s
+               [(let [e (lib/->circular-shine-1 ray)]
+                  (-> e
+                      (assoc :kind :rect)
+                      (assoc :lifetime 5)
+                      (assoc :color (lib/with-alpha
+                                      (:cyan
+                                       defs/color-map)
+                                      0))
+                      (assoc :stroke-weight 3)
+                      (assoc
+                       :on-update
+                       [(lib/->grow
+                         (* 2
+                            (+ 1
+                               (:intensity-factor
+                                ray
+                                0))))])
+                      (assoc :lifetime
+                             (* 5
+                                (lib/normal-distr
+                                 2
+                                 (Math/sqrt
+                                  2))))))])}))]))))
+
+
+
+(defn ->confetti-lighting
+  []
+  (let [[x y] (lib/rand-on-canvas-gauss 1)]
+    (-> (lib/->entity :circle
+                      {:color :white
+                       :e-index :g-confetti-l
+                       :gridoid? true
+                       :initial-pos [x y]
+                       :intensity-factor 1
+                       :kinetic-energy 0.5
+                       :particle? true
+                       ;; :stroke (:white
+                       ;; defs/color-map)
+                       :transform
+                       (lib/->transform [x y] 15 15 1)})
+        #_(lib/live update-intensity-osc)
+        #_(lib/live (lib/->grow (lib/normal-distr 3 3)))
+        (lib/live (lib/rhythmically :every-2of1
+                                    (fn [e s k]
+                                      (update e
+                                              :color
+                                              {:black
+                                               :white
+                                               :white
+                                               :black}))))
+        (lib/live (lib/rhythmically
+                   :every-1of1
                    (fn [e s k]
-                     (lib/flash-shine-1
-                       e
-                       (/ (:intensity e) 50)
-                       {:high
-                          ;; (defs/color-map
-                          ;; :white)
-                          (defs/color-map
-                            (rand-nth [;; :cyan
-                                       ;; :red
-                                       ;; :orange
-                                       ;; :red
-                                       :black :yellow]))
-                        :low defs/black}))])
-        (lib/live
-          [:circular-shine-radio
-           (lib/every-n-seconds
-             (fn [] (lib/normal-distr 5 5))
-             (fn [ray s k]
-               {:updated-state
-                  (lib/append-ents
-                    s
-                    [(let [e (lib/->circular-shine-1 ray)]
-                       (-> e
-                           (assoc :kind :rect)
-                           (assoc :lifetime 5)
-                           (assoc :color (lib/with-alpha
-                                           (:cyan
-                                             defs/color-map)
-                                           0))
-                           (assoc :stroke-weight 3)
-                           (assoc
-                             :on-update
-                               [(lib/->grow
-                                  (* 2
-                                     (+ 1
-                                        (:intensity-factor
-                                          ray
-                                          0))))])
-                           (assoc :lifetime (* 5 (lib/normal-distr 2 (Math/sqrt 2))))))])}))]))))
+                     (-> e
+                         (assoc :velocity 200)
+                         (assoc-in [:transform :rotation]
+                                   (rand-nth [0 q/PI]))))))
+        #_(lib/live
+         (fn [e s k]
+           (assoc e
+                  :stroke-weight
+                  (* 3
+                     (abs (lib/sine-wave 1 (q/millis))))))))))
+
+
+
+
 
 
 
@@ -1266,9 +1331,10 @@
   :setup
   (comp
    ;; (fn [state] (lib/append-ents state [(->gridoids)]))
-   (fn [state] (lib/append-ents state [(->growing-confetti)]))
-   (fn [state] (lib/append-ents state [(->gridoids)])))
-  ;; :setup (comp add-ray-source)
+   ;; (fn [state] (lib/append-ents state (repeatedly 2 ->growing-confetti)))
+   (fn [state] (lib/append-ents state (repeatedly 10 ->confetti-lighting)))
+   ;; (fn [state] (lib/append-ents state [(->gridoids)]))
+   )
   :sketch-id :s
   :time-speed 3.5
   :v :vehicle-1
@@ -1276,6 +1342,9 @@
 
 
 (comment
+
+
+
 
   (evtq/append-event! add-ray-source)
   (evtq/append-event! add-ray-source)
